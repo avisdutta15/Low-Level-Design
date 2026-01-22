@@ -1,0 +1,37 @@
+1. Requirements:
+	1. The system should Rate Limit the users based on UserId and their tier(free or premium or more)
+	2. Support 4 types of limiters (should be extensible)
+	3. Thread Safe and Efficient
+	4. Instead of Dropping the requests, can we have some buffering before the requests are addressed.
+	5. Extend the system to not only limit users, but also services, IPs
+	6. How to scale the service in Distributed World?
+
+
+2. Design
+	1. Main service called as RateLimiterService. This should be singleton.
+	2. We setup the service using configurations passed from the application.
+	3. Based on the RateLimiterOptions, we will choose the algorithm, bucket size, window size.
+	   Each algorithm will take a different type of configuration.
+	   We will setup the 
+	4. It has an entry point HandleRequests()
+	5. 
+	6. The HandleRequest
+	
+	We will have 4 algorithms:
+		1. Leaky Bucket
+		2. Token Bucket
+		3. Fixed Window
+		4. Sliding Window
+
+
+
+
+Awesome! Now lets create a RateLimiterService.
+This service will have different RateLimiterAlgorithms - 
+	TokenBucket (Keep Empty as of now), 
+	LeakyBucket(already implemented), 
+	Fixed Window (Keep Empty as of now),
+	Sliding Window (Keep Empty as of now)
+
+We will have rate limiters per user/service/ip. Keep a cache where we will store this.
+On every request to the service, we get the correct limiter from this cache and apply the limiter.

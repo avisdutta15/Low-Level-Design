@@ -1,0 +1,164 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|c:\\users\\avish\\desktop\\files\\system design\\system designs\\lld\\library management system\\librarymanagementsystem\\models\\abstract\\librarymaterial.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|solutionrelative:models\\abstract\\librarymaterial.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|c:\\users\\avish\\desktop\\files\\system design\\system designs\\lld\\library management system\\librarymanagementsystem\\models\\abstract\\librarian.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|solutionrelative:models\\abstract\\librarian.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|c:\\users\\avish\\desktop\\files\\system design\\system designs\\lld\\library management system\\librarymanagementsystem\\models\\abstract\\account.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|solutionrelative:models\\abstract\\account.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|c:\\users\\avish\\desktop\\files\\system design\\system designs\\lld\\library management system\\librarymanagementsystem\\services\\ifinecalculationstrategy.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|solutionrelative:services\\ifinecalculationstrategy.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|c:\\users\\avish\\desktop\\files\\system design\\system designs\\lld\\library management system\\librarymanagementsystem\\services\\fineservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|solutionrelative:services\\fineservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|c:\\users\\avish\\desktop\\files\\system design\\system designs\\lld\\library management system\\librarymanagementsystem\\services\\defaultfinecalculationstrategy.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|solutionrelative:services\\defaultfinecalculationstrategy.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|c:\\users\\avish\\desktop\\files\\system design\\system designs\\lld\\library management system\\librarymanagementsystem\\services\\bookreservation.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|solutionrelative:services\\bookreservation.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|c:\\users\\avish\\desktop\\files\\system design\\system designs\\lld\\library management system\\librarymanagementsystem\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BD6D1182-CA11-4EDB-ACB9-F423575772A8}|LibraryManagementSystem.csproj|solutionrelative:program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 2,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:2:0:{dcc4ea97-1c0c-482b-b205-e541c0df9728}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:3:0:{dcc4ea97-1c0c-482b-b205-e541c0df9728}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "LibraryMaterial.cs",
+              "DocumentMoniker": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Models\\Abstract\\LibraryMaterial.cs",
+              "RelativeDocumentMoniker": "Models\\Abstract\\LibraryMaterial.cs",
+              "ToolTip": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Models\\Abstract\\LibraryMaterial.cs",
+              "RelativeToolTip": "Models\\Abstract\\LibraryMaterial.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-22T03:51:03.335Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Librarian.cs",
+              "DocumentMoniker": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Models\\Abstract\\Librarian.cs",
+              "RelativeDocumentMoniker": "Models\\Abstract\\Librarian.cs",
+              "ToolTip": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Models\\Abstract\\Librarian.cs",
+              "RelativeToolTip": "Models\\Abstract\\Librarian.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-22T03:51:01.073Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Account.cs",
+              "DocumentMoniker": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Models\\Abstract\\Account.cs",
+              "RelativeDocumentMoniker": "Models\\Abstract\\Account.cs",
+              "ToolTip": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Models\\Abstract\\Account.cs",
+              "RelativeToolTip": "Models\\Abstract\\Account.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-22T03:50:59.96Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "IFineCalculationStrategy.cs",
+              "DocumentMoniker": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Services\\IFineCalculationStrategy.cs",
+              "RelativeDocumentMoniker": "Services\\IFineCalculationStrategy.cs",
+              "ToolTip": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Services\\IFineCalculationStrategy.cs",
+              "RelativeToolTip": "Services\\IFineCalculationStrategy.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-22T03:50:55.805Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "FineService.cs",
+              "DocumentMoniker": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Services\\FineService.cs",
+              "RelativeDocumentMoniker": "Services\\FineService.cs",
+              "ToolTip": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Services\\FineService.cs",
+              "RelativeToolTip": "Services\\FineService.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-22T03:50:54.771Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "DefaultFineCalculationStrategy.cs",
+              "DocumentMoniker": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Services\\DefaultFineCalculationStrategy.cs",
+              "RelativeDocumentMoniker": "Services\\DefaultFineCalculationStrategy.cs",
+              "ToolTip": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Services\\DefaultFineCalculationStrategy.cs",
+              "RelativeToolTip": "Services\\DefaultFineCalculationStrategy.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-22T03:50:53.57Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "BookReservation.cs",
+              "DocumentMoniker": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Services\\BookReservation.cs",
+              "RelativeDocumentMoniker": "Services\\BookReservation.cs",
+              "ToolTip": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Services\\BookReservation.cs",
+              "RelativeToolTip": "Services\\BookReservation.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-22T03:50:50.425Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Program.cs",
+              "RelativeDocumentMoniker": "Program.cs",
+              "ToolTip": "C:\\Users\\avish\\Desktop\\Files\\System Design\\System Designs\\LLD\\Library Management System\\LibraryManagementSystem\\Program.cs",
+              "RelativeToolTip": "Program.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-22T03:50:39.098Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

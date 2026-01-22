@@ -1,0 +1,59 @@
+Design a Logging Framework (Explore Serilog)
+Design a Parking Lot
+Design Stack Overflow
+Design a Task Management System (Jira)
+Design a Library Management System
+Design a Hotel Management System
+Design an Airline Management System
+Design a Restaurant Management System
+Design Coffee Vending Machine
+Design Traffic Signal Control System
+
+Design ATM
+Design LinkedIn
+Design LRU Cache
+Design Tic Tac Toe Game
+Design Pub Sub System
+Design an Elevator System
+Design a Car Rental System
+Design an Online Auction System
+Design a Digital Wallet Service
+Design Facebook
+Design a Meeting Scheduler
+Design a Movie Ticket Booking System
+
+Design Cricinfo
+Design Splitwise
+Design a Chess Game
+Design an Online Blackjack Game
+Design a Snake and Ladder game
+Design a Jigsaw Puzzle
+Design Ride-Sharing Service like Uber
+Design Course Registration System
+Design the Amazon Locker Service
+Design the Amazon Online Shopping System
+Design Music Streaming Service like Spotify
+Design Online Food Delivery Service like Swiggy
+Design an Online Stock Brokerage System
+
+
+
+WarmUp:
+Basics OOP Concepts
+SOLID Principles with Code
+DRY Principle
+YAGNI Principle
+KISS Principle
+Design Patterns
+UML
+    Class Diagram
+    Use Case Diagram
+    Sequence Diagram
+    Activity Diagram
+    State Machine Diagram    
+
+Resources:
+https://github.com/ashishps1/awesome-low-level-design
+
+Books:
+https://github.com/pratik0197/books/blob/master/software-dev/Refactoring%20%20Improving%20the%20Design%20of%20Existing%20Code.pdf
