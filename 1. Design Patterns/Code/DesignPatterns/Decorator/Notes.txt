@@ -1,0 +1,108 @@
+// WITHOUT DECORATOR PATTERN - The Class Explosion Approach
+
+public interface IText
+{
+    string GetContent();
+    string GetDescription();
+}
+
+// Base implementation
+public class PlainText : IText
+{
+    private string _content;
+
+    public PlainText(string content) => _content = content;
+
+    public string GetContent() => _content;
+    public string GetDescription() => "Plain Text";
+}
+
+// Now we need separate classes for EVERY COMBINATION:
+
+// Single formatting classes
+public class BoldText : IText
+{
+    private string _content;
+
+    public BoldText(string content) => _content = content;
+
+    public string GetContent() => $"<b>{_content}</b>";
+    public string GetDescription() => "Bold Text";
+}
+
+public class ItalicText : IText
+{
+    private string _content;
+
+    public ItalicText(string content) => _content = content;
+
+    public string GetContent() => $"<i>{_content}</i>";
+    public string GetDescription() => "Italic Text";
+}
+
+public class UnderlineText : IText
+{
+    private string _content;
+
+    public UnderlineText(string content) => _content = content;
+
+    public string GetContent() => $"<u>{_content}</u>";
+    public string GetDescription() => "Underline Text";
+}
+
+// Two-format combinations
+public class BoldItalicText : IText
+{
+    private string _content;
+
+    public BoldItalicText(string content) => _content = content;
+
+    public string GetContent() => $"<i><b>{_content}</b></i>";
+    public string GetDescription() => "Bold Italic Text";
+}
+
+public class BoldUnderlineText : IText
+{
+    private string _content;
+
+    public BoldUnderlineText(string content) => _content = content;
+
+    public string GetContent() => $"<u><b>{_content}</b></u>";
+    public string GetDescription() => "Bold Underline Text";
+}
+
+public class ItalicUnderlineText : IText
+{
+    private string _content;
+
+    public ItalicUnderlineText(string content) => _content = content;
+
+    public string GetContent() => $"<u><i>{_content}</i></u>";
+    public string GetDescription() => "Italic Underline Text";
+}
+
+// Three-format combination
+public class BoldItalicUnderlineText : IText
+{
+    private string _content;
+
+    public BoldItalicUnderlineText(string content) => _content = content;
+
+    public string GetContent() => $"<u><i><b>{_content}</b></i></u>";
+    public string GetDescription() => "Bold Italic Underline Text";
+}
+
+// And what if we add ONE MORE feature? Let's add Strikethrough...
+/*
+public class StrikethroughText : IText { // ...  }
+public class BoldStrikethroughText : IText { // ...  }
+public class ItalicStrikethroughText : IText { // ...  }
+public class UnderlineStrikethroughText : IText { // ...  }
+public class BoldItalicStrikethroughText : IText { // ...  }
+public class BoldUnderlineStrikethroughText : IText { // ...  }
+public class ItalicUnderlineStrikethroughText : IText { // ...  }
+public class BoldItalicUnderlineStrikethroughText : IText { // ... }
+
+// With 4 features, we now have 15 classes!
+// Formula: 2^n - 1 (where n = number of features)
+*/
