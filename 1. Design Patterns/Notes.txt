@@ -1,5 +1,25 @@
 https://learn.microsoft.com/en-us/archive/msdn-magazine/2005/july/discovering-the-design-patterns-you-re-already-using-in-net
 
+Patterns:
+1. Creational
+    A. Singleton
+    B. Factory (Simple, Factory Method, Abstract Factory)
+    C. Builder
+2. Structural
+    A. Adapter
+    B. Decorator
+    C. Facade
+    D. Proxy
+    E. Composite
+3. Behavioral 
+    A. Strategy
+    B. Observer
+    C. Mediator
+    D. Chain Of Responsibility
+    E. Command
+    F. State
+
+
 Stories:
 * Factory - StorageFactory
 * Singleton - StorageFactoryInitializer
