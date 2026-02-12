@@ -1,0 +1,129 @@
+1. Requirements:
+	1. The system should Rate Limit the users based on UserId and their tier(free or premium or more)
+	2. Support 4 types of limiters (should be extensible)
+	3. Thread Safe and Efficient
+	4. Instead of Dropping the requests, can we have some buffering before the requests are addressed.
+	5. Extend the system to not only limit users, but also services, IPs
+
+
+Concurrency:
+------------
+For all implementations:
+	The lock (_lock) strategy is the correct choice here. 
+	It ensures that calculating time deltas and updating counters happens atomically.
+
+Granularity: The locks are held for extremely short durations (microseconds), which 
+			 allows for very high throughput (thousands of requests per second).
+Exception: As noted, SlidingWindowLog is the only one that might suffer under load because 
+		   its critical section (the while loop) is O(N) rather than O(1).
+
+
+
+How to tackle this in LLD interview:
+------------------------------------
+1. Since we have different algorithms for Rate Limiting, this screams for Strategy Pattern.
+2. Create an interface and derive concrete algorithms from it.
+3. Now to interact with these algorithms, we would need an interface or service. This screams for Facade / Service Pattern.
+4. Create a service, which takes input from client what kind of rate limiter the client wants,
+   creates the rate limiter and then use it.
+   Since we have different types of rate limiters, to create them we will use Factory Design Pattern.
+   Let us stick to Simple Factory Method. We will create Enum to determine the Algorithm.
+5. The service holds a dictionary cache Dictionary <userId, RateLimiter>.
+   Service:
+		Configure(userId, algorithm)
+		IsAllowed(userId)
+6. Now lets go to Tiers. We will add enum TierType
+7. Lets add different ClientType - users, services, ips. We will add an enum
+8. Now the ClientIdentity will be {ClientType, TierType}
+9. Let use introduce Rules for the Rate Limiting. The rules should be first configured separately and then fed to the service.
+   This decouples the rules creation (either from db or some other storage) and the service.
+10. The service now accepts a rulestore object.
+	IsAllowed(ClientIdentity identity) -> if identity.ToString() is present in dictionary then get the rate limiter else add a new rate limiter based on the rule
+
+	enum ClientType{
+		User, Service, IP
+	}
+
+	enum TierType{
+		FREE, PREMIUM, INTERNAL
+	}
+
+	class ClientIdentity{
+		string Id {get; set;}
+		ClientType clientType {get; set;}
+		TierType tier{get; set;}
+
+		public override string ToString() => return $"{clientType:tierType}";
+	}
+
+	class RateLimitRule
+	{
+		public RateLimitAlgorithm RateLimitAlgorithm { get; set; }
+
+		/* Algorithm specific properties */
+		public int TokensToRefillPerRefillCycle { get; set; } 
+		public int RefillIntervalMs { get; set; }
+		public int BucketLimit { get; set; }
+		public int RequestsAllowedPerWindow { get; set; }
+		public int WindowSizeInMs { get; set; }
+		public int outflowTokens { get; set; }
+		public int leakIntervalMs { get; set; }
+	}
+
+	class RuleStore {
+		//We can get the rules from Db or some other data-stores
+		public RateLimitRule? GetRule(ClientIdentity client)
+		{
+			// Example logic: Different rules for different Tiers and Types
+			if (client.ClientType == ClientType.IP)
+				return new RateLimitRule { RateLimitAlgorithm = RateLimitAlgorithm.FixedWindow, RequestsAllowedPerWindow = 10, WindowSizeInMs = 1000 };
+
+			return client.Tier switch
+			{
+				TierType.Premium => new RateLimitRule { RateLimitAlgorithm = RateLimitAlgorithm.TokenBucket, BucketLimit = 1000, TokensToRefillPerRefillCycle = 10, RefillIntervalMs = 100 },
+			};
+		}
+	}
+
+	class RateLimitFactory {
+	    public static IRateLimiter Create(RateLimitRule rule)
+		{
+			return rule.RateLimitAlgorithm switch
+			{
+				RateLimitAlgorithm.TokenBucket => new TokenBucketRateLimiter(tokensToRefillPerRefillCycle: rule.TokensToRefillPerRefillCycle, refillIntervalMs: rule.RefillIntervalMs, bucketLimit: rule.BucketLimit),
+				RateLimitAlgorithm.LeakyBucket => new LeakyBucketRateLimiter(outflowTokens: rule.outflowTokens, leakIntervalMs: rule.leakIntervalMs, bucketLimit: rule.BucketLimit),
+				RateLimitAlgorithm.FixedWindow => new FixedWindowRateLimiter(requestsAllowedPerWindow: rule.RequestsAllowedPerWindow, windowSizeInMs: rule.WindowSizeInMs),
+				RateLimitAlgorithm.SlidingWindow => new SlidingWindowLogRateLimiter(requestsAllowedPerWindow: rule.RequestsAllowedPerWindow, windowSizeInMs: rule.WindowSizeInMs),
+				_ => throw new NotImplementedException()
+			};
+		}
+
+	}
+
+	class Service{
+		ConcurrentDictionary<string, IRateLimiter> _cache;
+		RuleStore _ruleStore
+		Service(ruleStore) : _ruleStore;
+
+		bool IsAllowed(ClientIdentity client)
+		{
+			string key = client.ToString();
+
+			IRateLimiter rateLimiter = _cache.GetOrAdd(key, _ =>
+			{
+				// This lambda only runs if the key doesn't exist
+				var rule = _ruleStore.GetRule(client);
+				return RateLimiterFactory.Create(rule);
+			});
+
+			return rateLimiter.TryAcquire();
+		}
+	}
+
+	class client{
+		RuleStore store = new();
+		RateLimiterService service = new(store);
+
+		var freeUser = new ClientIdentity { Id = "user_123", ClientType = ClientType.User, Tier = TierType.Free };
+        service.IsAllowed(freeUser);
+	}
