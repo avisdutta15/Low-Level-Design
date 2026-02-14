@@ -10,7 +10,7 @@
 
 
 ## 3. Worker Thread Processing Flow
-![](.\assets\3.Worker_Thread_Processing_Flow.png)
+![](assets\3.Worker_Thread_Processing_Flow.png)
 
 
 
