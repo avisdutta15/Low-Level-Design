@@ -2,32 +2,32 @@
 
 ## 1. Subscription Flow
 
-![](.\assets\1.Subscription_Flow.png)
+![](./assets/1.Subscription_Flow.png)
 
 ## 2. Message Publishing Flow
-![](.\assets\2.Message_Publishing_Flow.png)
+![](./assets/2.Message_Publishing_Flow.png)
 
 
 
 ## 3. Worker Thread Processing Flow
-![](assets\3.Worker_Thread_Processing_Flow.png)
+![](./assets/3.Worker_Thread_Processing_Flow.png)
 
 
 
 ## 4. Offset Reset Flow
-![](.\assets\4.Offset_Reset_Flow.png)
+![](./assets/4.Offset_Reset_Flow.png)
 
 
 
 
 ## 5. Shutdown Flow
-![](.\assets\5.Shutdown_Flow.png)
+![](./assets/5.Shutdown_Flow.png)
 
 
 
 
 ## 6. Complete System Flow (End-to-End)
-![](.\assets\6.Complete_System_Flow_End_to_End.png)
+![](./assets/6.Complete_System_Flow_End_to_End.png)
 
 
 
