@@ -1,0 +1,110 @@
+0. First visualize how the system will look like and how client will interact
+	clients : Admin, User
+	Admin create atms they hold the atm_name, 2000, 1000, 500
+	Admin adds the atms to the system
+	
+	Create and account and a atm for the user.
+	Set up an ATM machine for the user to interact with the atm.
+
+	Now on a particular atm machine, the user does the following actions:
+    1. atmmachine1.insert_card(card)
+    2. atmmachine1.enter_pin("123");
+    3. atmmachine1.select_option("WITHDRAW");
+    4. atmmachine1.dispense_cash(1000);
+
+1. The user has an Account
+	Account{
+		account_number;
+		available_balance;
+	}
+
+2. The user has an ATM Card.
+	Card{
+		card_number;
+		account;
+		pin;
+	}
+
+3. There are multiple ATMs in the system. Each ATM has
+	ATM{
+		id;
+		status {IDLE, CARD_INSERTED, AUTHENTICATED, DISPENSE_CASH};	
+		total_cash => count_of_2000_notes * 2000 + count_of_1000_notes * 1000 + count_of_500_notes * 500;
+		count_of_2000_notes;
+		count_of_1000_notes;
+		count_of_500_notes;
+
+		ATM(params){
+			initially the atm_status will be IDLE
+		}
+
+		bool DeductBalace(int amount)
+		{
+			// 1. Calculate how many bills we CAN take (Greedy approach)
+			// We use Math.Min to ensure we don't take more bills than we actually have.
+			int required2000 = Math.Min(TwoThousandCount, amount/2000);
+			int remainingAmount = amount - (required2000 * 2000);
+
+			int required500 = Math.Min(FiveHundredCount, remainingAmount/500);
+			remainingAmount = remainingAmount - (required500 * 500);
+
+			int required100 = Math.Min(OneHundredCount, remainingAmount / 100);
+			remainingAmount = remainingAmount - (required100 * 100);
+
+			// 2. If remainingAmount is 0, it means we found a valid combination of bills.
+			// Now we can physically update the state.
+			if (remainingAmount == 0)
+			{
+			    TwoThousandCount -= required2000;
+			    FiveHundredCount -= required500;
+			    OneHundredCount -= required100;
+			    return true; // Success
+			}
+			return false;   // Failed to dispense exact amount (e.g., asked for 50 rs or insufficient notes)
+		}
+
+	}
+
+	This is stored in a DB. The single entry in DB looks like above.
+4. Since the record is stored in DB. We would need a repository to interact with the db.
+	ATMRepository{
+		//in_memory representation of db
+		List<atm> atms;
+
+		AddAtm(atm);
+		GetAtmById(id);
+		UpdateAtmStatus(atm, status);
+	}
+
+5. Now the Admin/Bank will interact with the system using an ATM Service.
+	ATMService{
+		atm_repository;
+
+		AddAtm(atm);
+	}
+
+6. The users will interact with the ATM using an ATM Machine
+	ATMMAchine{
+		atm;
+		atm_repository;
+		current_atm_card;
+		ATMMachine(atm, atm_repository);
+
+		//the following actions are exposed by the atm_machine
+		insert_card(card);		//validate and set the _atm.ATMStatus = ATMStatus.CARD_INSERTED
+		enter_pin(pin);			//validate and set the _atm.ATMStatus = ATMStatus.AUTHENTICATED
+		select_option(option);	//validate and set the _atm.ATMStatus = ATMStatus.DISPENSE_CASH. 
+		dispense_cash(amount);	//validate and Call the atm.Dispense(). Update card.account.available_balance. Lastly call eject_card()
+		eject_card();				//set current_atm_card = null and _atm.ATMStatus = ATMStatus.IDLE
+	}
+
+
+The above solution has 2 main problems:
+1. If more steps are added in the ATMMachine, we will have to Open the ATMMachine class and maintain the state again.
+   The ATMMachine class is doing the atm state_machine's state maintenance which violates the SRP and OCP.
+2. In the Dispense() of ATM class, if more denominations are added or if the logic of dispensing needs to be changed
+   i.e. first give 100 then 500 then 2000, we will have to open the class again.
+
+Solution:
+1. For 1. We will use the state design pattern.
+2. For 2. We will use chain of responsibility design pattern.

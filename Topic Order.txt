@@ -1,40 +1,83 @@
-Design a Logging Framework (Explore Serilog)
-Design a Parking Lot
-Design Stack Overflow
-Design a Task Management System (Jira)
-Design a Library Management System
-Design a Hotel Management System
-Design an Airline Management System
-Design a Restaurant Management System
-Design Coffee Vending Machine
-Design Traffic Signal Control System
+Design Pattern Heavy Problems:
+------------------------------
+Rate Limiter 
+Design Stack Overflow 
+Design Pub Sub System 
+Notification System (Email, SMS, Push) 
+Design Logging Framework 
+Design ATM 
+Design a Vending Machine 
+Design Coffee Vending Machine 
+Design a Task Management System 
+Design Traffic Signal Control System 
+Design an Elevator System 
+ 
 
-Design ATM
-Design LinkedIn
-Design LRU Cache
-Design Tic Tac Toe Game
-Design Pub Sub System
-Design an Elevator System
-Design a Car Rental System
-Design an Online Auction System
-Design a Digital Wallet Service
-Design Facebook
-Design a Meeting Scheduler
-Design a Movie Ticket Booking System
+Concurrency Heavy Problems:
+---------------------------
+Design Parking Lot 
+Design Car Rental System 
+Design a Library Management System 
+Design Hotel Management System 
+Design Airline Management System 
+Design a Concert Ticket Booking System 
+Design an Online Auction System 
+Design Restaurant Management System 
+Design Inventory Management System 
+Design Course Registration System 
 
-Design Cricinfo
-Design Splitwise
-Design a Chess Game
-Design an Online Blackjack Game
-Design a Snake and Ladder game
-Design a Jigsaw Puzzle
-Design Ride-Sharing Service like Uber
-Design Course Registration System
-Design the Amazon Locker Service
-Design the Amazon Online Shopping System
-Design Music Streaming Service like Spotify
-Design Online Food Delivery Service like Swiggy
-Design an Online Stock Brokerage System
+ 
+
+Medium Problems:
+----------------
+Design LinkedIn 
+Design Distributed Cache (LRU, LFU) 
+Chess Game 
+Tic-Tac-Toe 
+Blackjack/Poker Card Game 
+Snake and Ladder 
+Tic-Tac-Toe with AI 
+Battleship Game 
+Sudoku Solver 
+Minesweeper 
+Design Bloom Filter 
+Design a Digital Wallet Service 
+Design Search AutoComplete System 
+Design a Social Network like Facebook 
+Design URL Shortner 
+Design MineSweeper Game 
+
+ 
+
+ 
+
+Hard Problems:
+--------------
+Design CricInfo 
+Design Splitwise 
+Design Ride-Sharing Service like Uber 
+Design Online Shopping System like Amazon 
+Design Online Stock Brokerage System 
+Design Music Streaming Service like Spotify 
+Design Online Food Delivery Service like Swiggy 
+Payment Gateway Simulation 
+Design In Memory File System 
+Design Google Calendar 
+
+ 
+
+Algorithmic:
+------------
+HashMap/Custom Dictionary 
+ArrayList/Dynamic Array 
+LinkedList (Single/Double) 
+Stack with additional operations 
+Queue variations (Circular, Priority) 
+Tree-based structures (BST, N-ary Tree) 
+Blocking Queue 
+Circular Buffer 
+Bloom Filter 
+Skip List 
 
 
 

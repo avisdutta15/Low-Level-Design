@@ -1,0 +1,89 @@
+1. Create the State interface
+
+public interface IATMState
+{
+    //Actions that can be performed in a particular state
+    public void InsertCard(ATMMAchine atmMachine, Card card);
+    public void EnterPin(ATMMAchine atmMachine, string pin);
+    public void SelectionOption(ATMMAchine atmMachine, string option);
+    public void DispenseCash(ATMMAchine atmMachine, int amount);
+    public void EjectCard(ATMMAchine atmMachine);
+}
+
+2. Create concrete State classes
+IdleState           : IATMState     //Actions Allowed: InsertCard
+    InsertCard(ATMMAchine atmMachine, Card card){
+        atmMachine.SetCard(card);
+        atmMachine.SetState(new CardInsertedState());
+    }
+    Other methods shows respective error messages;
+
+CardInsertedState   : IATMState     //Actions Allowed: EjectCard and EnterPin
+    EnterPin(ATMMachine atmMachine, string pin){
+        if(atmMachine.ValidatePin(pin) == false)
+            Error Message;
+            atmMachine.EjectCard();
+        else
+            atmMachine.SetState(new AuthenticatedState());
+    }
+
+AuthenticatedState  : IATMState     //Actions Allowed: EjectCard and SelectOption
+    SelectOption(ATMMachine atmMachine, string option){
+        if(option == "WITHDRAW")
+            atmMachine.SetState(new DispenseCashState());
+        else
+            Error Message;
+            atmMachine.EjectCard();
+    }
+
+DispenseCashState   : IATMState     //Actions Allowed: EjectCard and DispenseCash
+    DispenseCash(ATMMachine atmMachine, int amount){
+        if(atmMachine.Deduct_balance()==false)
+            Error Message;
+        atmMachine.EjectCard();
+    }
+
+3. The ATMMachine class is the context class. This will hold the state in a variable
+ATMMachine{
+    
+    IATMState _currentState;
+    ATMMachine(atm, atm_repository){
+        _currentState = new IdleState();    //Set the initial state
+    }
+
+    insert_card(card)       => _currentState.InsertCard(this, card);
+    enter_pin(pin)          => _currentState.EnterPin(this, pin);
+    select_option(option)   => _currentState.SelectionOption(this, option);
+    dispense_cash(amount)   => _currentState.DispenseCash(this, amount);
+    eject_card();
+
+    
+    //state manipulation methods called from state classes.
+    //Why these methods? - We dont want to expose the private fields like _atm and _currentCard to other classes.
+    //To fix this, we need to follow the Law of Demeter: Don't ask for the data and do the work yourself; ask the object to do the work for you.
+    //Instead of letting the State classes access the raw ATM or Card data, the ATMMachine should expose internal helper 
+    //methods that the States can call.
+
+    void set_card(card){
+        _currentCard = card;
+    }
+    void set_state(IATMState state){
+        _currentState = state;
+
+        // Map the State Class to the Enum
+        ATMSTATUS newStatus = newState switch
+        {
+            IdleState => ATMSTATUS.IDLE,
+            CardInsertedState => ATMSTATUS.CARD_INSERTED,
+            AuthenticatedState => ATMSTATUS.AUTHENTICATED,
+            DispenseCashState => ATMSTATUS.DISPENSE_CASH,
+            _ => ATMSTATUS.IDLE
+        };
+
+        atm.Status = newStatus;
+        _repository.updateATMStatus(atm, newStatus);
+    }
+    bool deduct_balance(){
+        //dispense cash and balance deduction logic
+    }
+}
