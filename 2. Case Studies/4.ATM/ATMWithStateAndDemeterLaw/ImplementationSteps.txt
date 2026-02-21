@@ -1,0 +1,110 @@
+In the previous solution, we had exposed the shared data - 
+
+// Shared Data
+public ATM atm { get; }     // Reference to data (cash counts etc)
+public Card? CurrentCard { get; private set; }
+
+Why the current card and atm is public? How are we controlling their setter?
+
+This is the right question! This is a classic trade-off between Encapsulation and Accessibility in the State Pattern.
+In the example above, I made them public solely so the separate State classes (IdleState, AuthenticatedState, etc.) could access them.
+The Problem: Because they are public, anyone (including the Main program) can access them. A malicious user could technically 
+write machine.AtmData.TwoThousandCount = 0; from the main program, which is bad design.
+
+Here is the deep dive into why this happened and how to fix it for a Production-Level LLD.
+1. The "Lazy" Way (Current Code)
+In the current code, the State classes act like "Controllers" that reach into the ATMMachine and grab data.
+
+    - CurrentCard: Uses private set.
+        - Protection: External code cannot replace the card (machine.CurrentCard = new Card() will fail).
+        - Vulnerability: External code can read it.
+    - Atm: Uses { get; } (Read-only property).
+        - Protection: External code cannot replace the ATM object.
+        - Vulnerability: External code can modify the contents of the ATM object (e.g., machine.AtmData.TwoThousandCount = 9999).
+
+2. The "Staff Engineer" Fix: Behavior over Data
+To fix this, we need to follow the Law of Demeter: Don't ask for the data and do the work yourself; ask the object to do the work for you.
+
+Instead of letting the State classes access the raw ATM or Card data, the ATMMachine should expose internal helper methods that the States can call.
+
+Step 1: Hide the Data
+Make the data private.
+
+public class ATMMachine
+{
+    // Now these are completely hidden from the outside world
+    private Card _currentCard; 
+    private readonly ATM _atmData;
+    
+    // ... Constructor ...
+}
+
+Step 2: Expose "Capabilities" to the State
+Instead of the State checking _currentCard.PinNumber == pin, the State should ask the machine to validate.
+
+We can use the internal keyword so that only the State classes (assuming they are in the same Assembly/Project) can call these methods, but the Program (UI) cannot.
+
+public class ATMMachine
+{
+    private Card _currentCard;
+    private readonly ATM _atmData;
+    // ... repository code ...
+
+    // 1. Capability: Validate PIN
+    internal bool ValidatePin(string pin)
+    {
+        if (_currentCard == null) return false;
+        return _currentCard.PinNumber == pin;
+    }
+
+    // 2. Capability: Check Balance
+    internal bool HasSufficientBalance(int amount)
+    {
+        return _currentCard?.Account.AvailableBalance >= amount;
+    }
+
+    // 3. Capability: Transact
+    internal void DeductBalance(int amount)
+    {
+        _currentCard.Account.AvailableBalance -= amount;
+        _atmData.DeductBalance(amount); // Logic we added earlier
+        
+        // Sync with DB
+        _repository.UpdateATM(_atmData); 
+        _repository.UpdateAccount(_currentCard.Account);
+    }
+}
+
+Step 3: Update the State Classes
+Now the State classes look much cleaner. They don't touch the data; they just direct the flow.
+
+Before (Bad Encapsulation):
+public void EnterPin(ATMMachine machine, string pin)
+{
+    // The State is digging into the machine's private parts!
+    if (machine.CurrentCard.PinNumber == pin) 
+    {
+       // ...
+    }
+}
+
+After (Good Encapsulation):
+public void EnterPin(ATMMachine machine, string pin)
+{
+    // The State asks the machine to validate
+    if (machine.ValidatePin(pin)) 
+    {
+        Console.WriteLine("PIN Correct.");
+        machine.SetState(new AuthenticatedState());
+    }
+    else
+    {
+        Console.WriteLine("Incorrect PIN.");
+        machine.EjectCard();
+    }
+}
+
+For your interview:
+If asked why you made them public initially, say: "For simplicity in the initial draft."
+Then immediately pivot: "However, in production, I would make _currentCard and _atmData private and expose internal methods 
+like ValidatePin or DeductBalance. This prevents external consumers from corrupting the state and adheres to the Law of Demeter."
