@@ -1,16 +1,16 @@
 Design Pattern Heavy Problems:
 ------------------------------
-Rate Limiter 
-Design Stack Overflow 
-Design Pub Sub System 
-Notification System (Email, SMS, Push) 
-Design Logging Framework 
-Design ATM 
-Design a Vending Machine 
-Design Coffee Vending Machine 
-Design a Task Management System 
-Design Traffic Signal Control System 
-Design an Elevator System 
+1. Rate Limiter 
+2. Design Stack Overflow 
+3. Design Pub Sub System 
+4. Design ATM
+5. Design Logging Framework 
+6. Notification System (Email, SMS, Push) 
+7. Design a Vending Machine 
+8. Design Coffee Vending Machine 
+9. Design a Task Management System 
+10. Design Traffic Signal Control System 
+11. Design an Elevator System 
  
 
 Concurrency Heavy Problems:
