@@ -1,38 +1,6 @@
+using System;
 using System.Collections.Concurrent;
-
-/*
-    roblem Statement:
-    "You're building an in-memory rate limiter for an API gateway. 
-    The system receives configuration from an external service that provides rate limiting rules per endpoint.
-
-    Each endpoint can have its own limit with a specific algorithm. Here's an example configuration for one endpoint:
-    {
-    "endpoint": "/search",
-    "algorithm": "TokenBucket",
-    "algoConfig": {
-        "capacity": 1000,
-        "refillRatePerSecond": 10
-    }
-    }
-
-    This config allows bursts up to 1000 requests, refilling at 10 requests per second.
-    Your job is to build the in-memory rate limiter that enforces these rules."
-
-
-
-    Functional Requirements:
-    1. Configuration is provided at startup (loaded once)
-    2. System receives requests with (clientId: string, endpoint: string)
-    3. Each endpoint has a configuration specifying:
-    - Algorithm to use (e.g., "TokenBucket", "SlidingWindowLog", etc.)
-    - Algorithm-specific parameters (e.g., capacity, refillRatePerSecond for Token Bucket)
-    4. System enforces rate limits by checking clientId against the endpoint's configuration
-    5. Return structured result: (allowed: boolean, remaining: int, retryAfterMs: long | null)
-    6. If endpoint has no configuration, use a default limit
-    7. System should be Thread safe and efficient.
-    8. Extend the system to not only limit users, but also services, IPs
-    9. The system should Rate Limit the users based on UserId and their tier(free or premium or more)
-*/
+using System.Diagnostics.Metrics;
 
 namespace _3.RateLimiterConfigurationAndService
 {
@@ -111,7 +79,7 @@ namespace _3.RateLimiterConfigurationAndService
                 var timeToNextRefill = TimeSpan.FromSeconds(_refillIntervalInSeconds) - timeSpentInCurrentCycle;
 
                 //3. Rejection
-                if(timeToNextRefill > TimeSpan.Zero)
+                if (timeToNextRefill > TimeSpan.Zero)
                 {
                     return new RateLimitResult(Allowed: false, 0, RetryAfter: timeToNextRefill);
                 }
@@ -122,12 +90,6 @@ namespace _3.RateLimiterConfigurationAndService
             }
         }
 
-        /*
-            - every 2 seconds 10 tokens have to be refilled
-            - let's say 6 seconds have elapsed.
-            - so basically 6/2 = 3 refill cycles have passed.
-            - that means 3 * 10 = 30 tokens should have been refilled.
-         */
         private void RefillTokens()
         {
             var now = DateTime.UtcNow;
@@ -193,32 +155,7 @@ namespace _3.RateLimiterConfigurationAndService
         }
     }
 
-    /*
-     The Scenario
-        Window Size: 60 seconds.
-        Allowed Requests: 2.
-
-        The Timeline:
-        Request A arrives at 12:00:00. (Allowed, Queue =)
-        Request B arrives at 12:00:10. (Allowed, Queue =)
-        Request C arrives at 12:00:15. (Queue is full! Entering Rejection Logic...)
-
-        Step-by-Step Logic at 12:00:15
-        1. var oldestRequestTime = _requestTimeStampsQ.Peek();
-        We look at the front of the queue to find the first request that is "blocking" us.
-        Result: oldestRequestTime is 12:00:00 (Request A).
-
-        2. var timeSinceOldest = now - oldestRequestTime;
-        We calculate how much time has passed since that oldest request happened.
-        Math: 12:00:15 - 12:00:00 = 15 seconds.
-        Meaning: Request A has been in our window for 15 seconds already.
-
-        3. var timeUntilExpiry = TimeSpan.FromSeconds(_windowSizeInSeconds) - timeSinceOldest;
-        Since the window is 60 seconds long, Request A will "expire" (exit the window) exactly 60 seconds after it started.
-        Math: 60s (Window) - 15s (Time Passed) = 45 seconds.
-        Meaning: In exactly 45 seconds, Request A will be older than 60 seconds, it will be dequeued, and a new slot will open.
-     
-     */
+    
     public class SlidingWindowRateLimiter : IRateLimiter
     {
         private readonly int _requestsAllowedPerWindow;
@@ -259,6 +196,93 @@ namespace _3.RateLimiterConfigurationAndService
 
                 return new RateLimitResult(Allowed: false, Remaining: 0, RetryAfter: timeUntilExpiry);
             }                
+        }
+    }
+
+    public class LeakyBucketRateLimiter : IRateLimiter
+    {
+        private readonly int _maxBucketCapacity;                    // Size of the bucket (Burst limit)
+        private readonly int _tokensToLeakPerRefillCycle;           // e.g., 10 requests...
+        private readonly int _leakIntervalInSeconds;                // ...per 1000 ms
+        private readonly object _lock = new();
+
+        private double _currentWaterLevel;           // Current requests in queue
+        private DateTime _lastLeakTime;              // Last time we calculated a leak
+
+        public LeakyBucketRateLimiter(int tokensToLeakPerRefillCycle, int leakIntervalInSeconds, int capacity)
+        {
+            _tokensToLeakPerRefillCycle = tokensToLeakPerRefillCycle;
+            _leakIntervalInSeconds = leakIntervalInSeconds;
+            _maxBucketCapacity = capacity;
+
+            _currentWaterLevel = _maxBucketCapacity;
+            _lastLeakTime = DateTime.UtcNow;
+        }
+
+        public RateLimitResult TryAcquire()
+        {
+            lock (_lock)
+            {
+                Leak();
+
+                if((_currentWaterLevel+1) <= _maxBucketCapacity)
+                {
+                    _currentWaterLevel++;
+                    return new RateLimitResult(Allowed: true, Remaining: (int)(_maxBucketCapacity - _currentWaterLevel), RetryAfter: TimeSpan.Zero);
+                }
+                else
+                {
+                    // MATH: How long until there is room for exactly 1 more request?
+                    // We need the level to drop to (_maxBucketCapacity - 1)
+                    double leakRatePerSecond = (double)_tokensToLeakPerRefillCycle / _leakIntervalInSeconds;
+
+                    // Amount of water that MUST leak before we have 1 unit of space
+                    double waterToWaitUnits = (_currentWaterLevel + 1) - _maxBucketCapacity;
+
+                    double secondsToWait = waterToWaitUnits / leakRatePerSecond;
+
+                    return new RateLimitResult(
+                        Allowed: false,
+                        Remaining: 0,
+                        RetryAfter: TimeSpan.FromSeconds(Math.Max(secondsToWait, 0.1))
+                    );
+                }
+            }
+        }
+
+        private void Leak() 
+        {
+            // Step 1: Calculate how much time has passed
+            var now = DateTime.UtcNow;
+            var elapsedTime = (now - _lastLeakTime).TotalSeconds;
+
+            if (elapsedTime <= 0)
+                return;
+
+            // Step 2: Calculate the "Leak Rate" per second
+            // We cast to double to ensure floating-point precision
+            double leakRatePerSecond = (double)_tokensToLeakPerRefillCycle / _leakIntervalInSeconds;
+
+            // Step 3: Calculate total water to drain based on elapsed time
+            double waterToDrain = elapsedTime * leakRatePerSecond;
+
+            // Step 4: Apply the leak (Drain the water)
+            // We ensure the water level never drops below zero
+            if (waterToDrain > 0)
+            {
+                _currentWaterLevel = _currentWaterLevel - waterToDrain;
+
+                // Handle the "Empty Bucket" edge case
+                if (_currentWaterLevel < 0)
+                {
+                    _currentWaterLevel = 0;
+                }
+
+                // Step 5: Update the timestamp
+                // Since we use 'double' for water level (continuous flow), 
+                // we can safely set the last leak time to 'now'.
+                _lastLeakTime = now;
+            }
         }
     }
 
@@ -314,7 +338,7 @@ namespace _3.RateLimiterConfigurationAndService
         }
     }
 
-    public class Program
+    public class RateLimiterLLD
     {
         public static void Main(string[] args)
         {
