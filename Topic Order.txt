@@ -1,83 +1,78 @@
-Design Pattern Heavy Problems:
-------------------------------
-1. Rate Limiter 
-2. Design Stack Overflow 
-3. Design Pub Sub System 
-4. Design ATM
-5. Design Logging Framework 
-6. Notification System (Email, SMS, Push) 
-7. Design a Vending Machine 
-8. Design Coffee Vending Machine 
-9. Design a Task Management System 
-10. Design Traffic Signal Control System 
-11. Design an Elevator System 
- 
-
-Concurrency Heavy Problems:
----------------------------
-Design Parking Lot 
-Design Car Rental System 
-Design a Library Management System 
-Design Hotel Management System 
-Design Airline Management System 
-Design a Concert Ticket Booking System 
-Design an Online Auction System 
-Design Restaurant Management System 
-Design Inventory Management System 
-Design Course Registration System 
-
- 
-
-Medium Problems:
-----------------
-Design LinkedIn 
-Design Distributed Cache (LRU, LFU) 
-Chess Game 
-Tic-Tac-Toe 
-Blackjack/Poker Card Game 
-Snake and Ladder 
-Tic-Tac-Toe with AI 
+1. Games
+Design Minesweeper Game
+Design Tic Tac Toe
+Design Snake and Ladder Game
+Design Chess Game
 Battleship Game 
 Sudoku Solver 
-Minesweeper 
-Design Bloom Filter 
-Design a Digital Wallet Service 
-Design Search AutoComplete System 
-Design a Social Network like Facebook 
-Design URL Shortner 
-Design MineSweeper Game 
 
- 
-
- 
-
-Hard Problems:
---------------
-Design CricInfo 
-Design Splitwise 
-Design Ride-Sharing Service like Uber 
-Design Online Shopping System like Amazon 
-Design Online Stock Brokerage System 
-Design Music Streaming Service like Spotify 
-Design Online Food Delivery Service like Swiggy 
-Payment Gateway Simulation 
-Design In Memory File System 
-Design Google Calendar 
-
- 
-
-Algorithmic:
-------------
-HashMap/Custom Dictionary 
-ArrayList/Dynamic Array 
-LinkedList (Single/Double) 
-Stack with additional operations 
-Queue variations (Circular, Priority) 
-Tree-based structures (BST, N-ary Tree) 
-Blocking Queue 
-Circular Buffer 
-Bloom Filter 
+2. Data Structures & Search
+Design LRU Cache
+Design Bloom Filter
+Design Search Autocomplete System
+Design Simple Search Engine
+HashMap/Custom Dictionary
+Dynamic Array 
 Skip List 
+Blocking Queue
+Circular Buffer
+
+
+3. Developer Tools & Infrastructure
+Design URL Shortener
+Design Logging Framework
+Design Rate Limiter
+Design In Memory File System
+Design Version Control System
+Design Task Scheduler
+
+4. Managing States
+Design ATM
+Design Vending Machine
+Design Traffic Control System
+Design Coffee Vending Machine
+
+5. Management Systems
+Design Parking Lot
+Design Task Management System
+Design Inventory Management System
+Design Library Management System
+Design Restaurant Management System
+Design Hotel Management System 
+Design Course Registration System 
+
+
+6. Communication & Messaging
+Design Notification System
+Design Pub Sub System
+Design Chat Application
+
+7. E-Commerce & Booking
+Design Amazon Locker
+Design Shopping Cart
+Design Amazon
+Design Movie Booking System
+Design Car Rental System
+Design Airline Management System 
+Design Meeting Scheduler
+Design Online Auction System
+Design Online Food Delivery Service
+Design Ride Hailing Service
+
+8. Social & Content Platform
+Design Stack Overflow
+Design a Social Network
+Design Learning Platform
+Design Cricinfo
+Design LinkedIn
+Design Spotify
+
+9. Financial & Payment System
+Design Splitwise
+Design Payment Gateway
+Design Online Stock Exchange
+Design a Digital Wallet Service
+
 
 
 
