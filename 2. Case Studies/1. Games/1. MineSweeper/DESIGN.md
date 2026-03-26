@@ -51,6 +51,8 @@ Before writing any code, identify the nouns and behaviors from the requirements.
 
 ### Enums
 
+We need the followine enums. Using an enum gives us type safety. The compiler will catch invalid symbols at compile time rather than runtime.
+
 | Enum | Values | Purpose |
 |------|--------|---------|
 | `Difficulty` | Easy, Medium, Hard | Selects board configuration preset |
