@@ -166,25 +166,20 @@ public sealed class GameStatistics
 
 ### Class Diagram — Step 2
 
-```
-┌─────────────────────┐       ┌──────────────────┐
-│       Game           │──────▶│      Board        │
-│                      │       │                   │
-│ - _statistics        │       │ - _grid: Cell[,]  │
-│ - State: GameState   │       │                   │
-│                      │       │ + PlaceMines()    │
-│ + Reveal()           │       │ + RevealCell()    │  ◄── BFS logic is HERE
-│ + ToggleFlag()       │       │ + AreAllNonMines  │
-└──────────┬───────────┘       │   Revealed()      │
-           │                   └────────┬──────────┘
-           ▼                            │ owns
-┌──────────────────────┐       ┌────────▼──────────┐
-│   GameStatistics     │       │       Cell         │
-│                      │       │                    │
-│ + RecordWin()        │       │ + Reveal()         │
-│ + RecordLoss()       │       │ + ToggleFlag()     │
-└──────────────────────┘       └────────────────────┘
-```
+![alt text](./assets/basicCD.png)
+
+
+### Sequence Diagrams
+
+### SimpleMineSweeper — Reveal Flow
+
+In the simple version, `Game` directly owns `GameStatistics` and calls `RecordWin()`/`RecordLoss()`. The BFS cascade logic lives inside `Board.RevealCell()`.
+
+![alt text](./assets/reveal.png)
+
+### SimpleMineSweeper — Flag Flow
+
+![alt text](./assets/flagflow.png)
 
 ### What's wrong with this design?
 
@@ -262,35 +257,7 @@ public sealed class Board
 
 ### Class Diagram — Step 3
 
-```
-                          ┌─────────────────────────┐
-                          │    «interface»           │
-                          │    IRevealStrategy       │
-                          │                          │
-                          │ + Reveal(Board, r, c)    │
-                          └────────────▲─────────────┘
-                                       │ implements
-                          ┌────────────┴─────────────┐
-                          │ CascadeRevealStrategy     │
-                          │                           │
-                          │ + Reveal(Board, r, c)     │
-                          │   (BFS flood-fill)        │
-                          └────────────▲──────────────┘
-                                       │ delegates to
-┌─────────────────────┐       ┌────────┴──────────┐
-│       Game           │──────▶│      Board        │
-│                      │       │                   │
-│ - _statistics        │       │ - _revealStrategy │
-│                      │       │                   │
-│ + Reveal()           │       │ + RevealCell()────┘  (delegates)
-│ + ToggleFlag()       │       │
-└──────────┬───────────┘       └────────┬──────────┘
-           │                            │ owns
-           ▼                   ┌────────▼──────────┐
-┌──────────────────────┐       │       Cell         │
-│   GameStatistics     │       └────────────────────┘
-└──────────────────────┘
-```
+![alt text](./assets/strategy.png)
 
 ### Extensibility Example
 
@@ -443,241 +410,20 @@ Zero changes to `Game`, `Board`, or `GameStatistics`.
 
 ## Final Class Diagram
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                              ENUMS                                           │
-│                                                                              │
-│  Difficulty { Easy, Medium, Hard }                                           │
-│  CellState  { Hidden, Revealed, Flagged }                                    │
-│  GameState  { NotStarted, InProgress, Won, Lost }                            │
-│  GameEventType { GameStarted, CellRevealed, CellFlagged, GameWon, GameLost } │
-└──────────────────────────────────────────────────────────────────────────────┘
-
-┌──────────────────────┐
-│   DifficultyConfig   │
-│                      │
-│ + Rows: int          │
-│ + Columns: int       │
-│ + MineCount: int     │
-│                      │
-│ + FromDifficulty()   │
-└──────────┬───────────┘
-           │ configures
-           ▼
-┌──────────────────────────┐         ┌──────────────────────────┐
-│         Board            │────────▶│    «interface»           │
-│                          │delegates│    IRevealStrategy       │
-│ - _grid: Cell[,]         │         │                          │
-│ - _revealStrategy        │         │ + Reveal(Board, r, c)    │
-│                          │         └──────────▲───────────────┘
-│ + GetCell(r, c)          │                    │ implements
-│ + IsInBounds(r, c)       │         ┌──────────┴───────────────┐
-│ + PlaceMines(safeR, C)   │         │ CascadeRevealStrategy    │
-│ + RevealCell(r, c)───────┘         │                          │
-│ + AreAllNonMinesRevealed()         │ BFS flood-fill algorithm │
-│ + RevealAllMines()       │         └──────────────────────────┘
-└──────────┬───────────────┘
-           │ owns
-           ▼
-┌──────────────────────────┐
-│          Cell            │
-│                          │
-│ + Row, Column: int       │
-│ + IsMine: bool           │
-│ + AdjacentMineCount: int │
-│ + State: CellState       │
-│                          │
-│ + PlaceMine()            │
-│ + Reveal(): bool         │
-│ + ToggleFlag(): bool     │
-└──────────────────────────┘
-
-┌──────────────────────────┐         ┌──────────────────────────┐
-│          Game            │────────▶│    «interface»           │
-│       (Subject)          │notifies │    IGameObserver         │
-│                          │         │                          │
-│ - _board: Board          │         │ + OnGameEvent(type)      │
-│ - _observers: List<>     │         └──────────▲───────────────┘
-│ - State: GameState       │                    │ implements
-│                          │         ┌──────────┴───────────────┐
-│ + Subscribe(observer)    │         │    GameStatistics        │
-│ + Unsubscribe(observer)  │         │                          │
-│ + Reveal(r, c)           │         │ + GamesPlayed: int       │
-│ + ToggleFlag(r, c)       │         │ + Wins: int              │
-└──────────────────────────┘         │ + Losses: int            │
-                                     │                          │
-                                     │ + OnGameEvent(type)      │
-                                     └──────────────────────────┘
-```
-
+![alt text](./assets/finalCD.png)
 ---
 
 ## Sequence Diagrams
-
-### SimpleMineSweeper — Reveal Flow
-
-In the simple version, `Game` directly owns `GameStatistics` and calls `RecordWin()`/`RecordLoss()`. The BFS cascade logic lives inside `Board.RevealCell()`.
-
-```mermaid
-sequenceDiagram
-    participant P as Program
-    participant G as Game
-    participant B as Board
-    participant C as Cell
-    participant S as GameStatistics
-
-    P->>G: new Game(difficulty, stats)
-    G->>B: new Board(config)
-    B->>C: new Cell(r, c) [for each cell]
-
-    loop Game Loop
-        P->>G: Reveal(row, col)
-        G->>B: IsInBounds(row, col)
-        B-->>G: true
-        G->>B: GetCell(row, col)
-        B-->>G: cell
-
-        alt First Click (State == NotStarted)
-            G->>B: PlaceMines(row, col)
-            B->>C: PlaceMine() [random cells outside safe zone]
-            B->>C: SetAdjacentMineCount(count) [all cells]
-            G->>G: State = InProgress
-        end
-
-        G->>B: RevealCell(row, col)
-        B->>C: Reveal()
-        C-->>B: true
-
-        alt AdjacentMineCount == 0 (Cascade)
-            loop BFS Flood Fill
-                B->>C: Reveal() [each neighbor]
-                C-->>B: true/false
-            end
-        end
-
-        B-->>G: List<Cell> revealed
-
-        alt Cell is Mine (Loss)
-            G->>G: State = Lost
-            G->>B: RevealAllMines()
-            B->>C: Reveal() [each mine]
-            G->>S: RecordLoss()
-        else All Non-Mines Revealed (Win)
-            G->>B: AreAllNonMinesRevealed()
-            B-->>G: true
-            G->>G: State = Won
-            G->>S: RecordWin()
-        end
-
-        G-->>P: List<Cell> revealed
-    end
-```
-
-### SimpleMineSweeper — Flag Flow
-
-```mermaid
-sequenceDiagram
-    participant P as Program
-    participant G as Game
-    participant B as Board
-    participant C as Cell
-
-    P->>G: ToggleFlag(row, col)
-    G->>B: IsInBounds(row, col)
-    B-->>G: true
-    G->>B: GetCell(row, col)
-    B-->>G: cell
-    G->>C: ToggleFlag()
-    C-->>G: true/false
-    G-->>P: true/false
-```
 
 ### CompleteMineSweeper — Reveal Flow
 
 In the complete version, `Game` uses the Observer pattern to notify subscribers (like `GameStatistics`) and the Strategy pattern to delegate reveal logic to `IRevealStrategy` (default: `CascadeRevealStrategy`).
 
-```mermaid
-sequenceDiagram
-    participant P as Program
-    participant G as Game
-    participant B as Board
-    participant RS as CascadeRevealStrategy
-    participant C as Cell
-    participant O as IGameObserver (GameStatistics)
-
-    P->>G: new Game(difficulty)
-    G->>B: new Board(config, revealStrategy)
-    B->>C: new Cell(r, c) [for each cell]
-    P->>G: Subscribe(stats)
-
-    loop Game Loop
-        P->>G: Reveal(row, col)
-        G->>B: IsInBounds(row, col)
-        B-->>G: true
-        G->>B: GetCell(row, col)
-        B-->>G: cell
-
-        alt First Click (State == NotStarted)
-            G->>B: PlaceMines(row, col)
-            B->>C: PlaceMine() [random cells outside safe zone]
-            B->>C: SetAdjacentMineCount(count) [all cells]
-            G->>G: State = InProgress
-            G->>O: OnGameEvent(GameStarted)
-        end
-
-        G->>B: RevealCell(row, col)
-        B->>RS: Reveal(board, row, col)
-        RS->>C: Reveal()
-        C-->>RS: true
-
-        alt AdjacentMineCount == 0 (Cascade)
-            loop BFS Flood Fill
-                RS->>B: GetCell(nr, nc)
-                B-->>RS: neighbor
-                RS->>C: Reveal() [each neighbor]
-                C-->>RS: true/false
-            end
-        end
-
-        RS-->>B: List<Cell> revealed
-        B-->>G: List<Cell> revealed
-        G->>O: OnGameEvent(CellRevealed)
-
-        alt Cell is Mine (Loss)
-            G->>G: State = Lost
-            G->>B: RevealAllMines()
-            B->>C: Reveal() [each mine]
-            G->>O: OnGameEvent(GameLost)
-        else All Non-Mines Revealed (Win)
-            G->>B: AreAllNonMinesRevealed()
-            B-->>G: true
-            G->>G: State = Won
-            G->>O: OnGameEvent(GameWon)
-        end
-
-        G-->>P: List<Cell> revealed
-    end
-```
+![alt text](./assets/completerevealflow.png)
 
 ### CompleteMineSweeper — Flag Flow
 
-```mermaid
-sequenceDiagram
-    participant P as Program
-    participant G as Game
-    participant B as Board
-    participant C as Cell
-
-    P->>G: ToggleFlag(row, col)
-    G->>B: IsInBounds(row, col)
-    B-->>G: true
-    G->>B: GetCell(row, col)
-    B-->>G: cell
-    G->>C: ToggleFlag()
-    C-->>G: true/false
-    G-->>P: true/false
-```
-
+![alt text](./assets/completeflagflow.png)
 ---
 
 ## Key Design Decisions Summary
