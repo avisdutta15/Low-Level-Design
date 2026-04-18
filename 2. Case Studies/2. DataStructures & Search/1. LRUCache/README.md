@@ -125,38 +125,47 @@ public void Put(key, value){
 }
 
 public void PurgeExpiredKeys()
-    {
-        while (_expiryQueue.Count > 0)
-        {
-            _expiryQueue.TryPeek(out int key, out DateTimeOffset expiry);
+{
+   while (_expiryQueue.Count > 0){
+      _expiryQueue.TryPeek(out int key, out DateTimeOffset expiry);
 
-            // 3 scenarios for this key.
-            if (_map.TryGetValue(key, out Node? currentNode))
-            {
-                // 1. This key was updated with a new expiry using Put.
-                //    So this is a stale key in the queue. Delete it
-                if (currentNode.ExpiresAt != expiry)
-                {
-                    _expiryQueue.Dequeue();
-                    continue;
-                }
-                // 2. This key is still alive but has expired. Delete it.
-                else if (currentNode.ExpiresAt < DateTimeOffset.UtcNow)
-                {
-                    _expiryQueue.Dequeue();
-                    _map.Remove(key);
-                    _list.RemoveNode(currentNode);
-                    _size--;
-                }
-                // 3. This key is still alive and has not expired. So no other 
-                //    entries will be expired. Break;
-                else
-                {
-                    break;
-                }
-            }
-        }
-    }
+      // 2 scenarios for this key.
+      // 1. This key is present in the Map and List
+      if (_map.TryGetValue(key, out Node? currentNode))
+      {
+         // 1. This key was updated with a new expiry using Put.
+         //    So this is a stale key in the queue. Delete it
+         if (currentNode.ExpiresAt != expiry)
+         {
+            _expiryQueue.Dequeue();
+            continue;
+         }
+         // 2. This key is still alive but has expired. Delete it.
+         else if (currentNode.ExpiresAt < DateTimeOffset.UtcNow)
+         {
+            _expiryQueue.Dequeue();
+            _map.Remove(key);
+            _list.RemoveNode(currentNode);
+            _size--;
+         }
+         // 3. This key is still alive and has not expired. So no other 
+         //    entries will be expired. Break;
+         else
+         {
+            break;
+         }
+      }
+      // 2. This key is not present in the Map and the List
+      else
+      {
+         //The key is in the queue but was already deleted from the map 
+         // (e.g., evicted by LRU capacity or manually removed). 
+         // It is an orphaned ghost entry. Discard it.
+
+         _expiryQueue.Dequeue();
+      }
+   }
+}
 ```
 
 ### PurgeExpiredKeys — All Possible States
