@@ -44,6 +44,26 @@ The system heavily relies on several Gang of Four (GoF) design patterns to guara
 - **Repository Pattern (`IUrlRepository`):** Abstracts the entire data access layer. Because the core service only speaks to the `IUrlRepository` interface, the current in-memory dictionary implementation can be swapped for a distributed Redis cache or a persistent SQL Server database later with zero changes to the service layer.
 - **Observer Pattern (`IUrlSubject` / `IUrlObserver`):** Completely decouples the core URL shortening service from the analytics processing engine. It broadcasts events (`UrlCreated`, `UrlVisited`) so that analytics can be processed asynchronously without forcing the end-user to wait.
 
+### 3.2 Class Relationships
+
+The design strictly adheres to the **Dependency Inversion Principle (SOLID)**.
+
+- `UrlShortenerService` (the orchestrator) does not know how URLs are generated or how they are stored. It solely coordinates the workflow and aggregates analytics.
+
+- `UrlShortenerService` depends on the `IUrlGeneratorStrategy` interface to get a unique string.
+
+- `UrlShortenerService` depends on the `IUrlRepository` interface to check for conflicts, save the UrlEntry, and query system-wide analytics.
+
+- The `InMemoryUrlRepository` implements `IUrlRepository` and manages a collection of UrlEntry objects.
+
+### 3.3 Key Design Patterns
+
+1. **Strategy Pattern** (`IUrlGeneratorStrategy`): URL generation algorithms change frequently. The Strategy pattern allows us to swap generation logic without touching the core service.
+
+2. **Repository Pattern** (`IUrlRepository`): Abstracts the data layer. Today, we use an in-memory dictionary. Tomorrow, we can swap it for a `RedisUrlRepository` or `SqlUrlRepository` by simply injecting a new class, fulfilling the Extensibility requirement.
+
+3. **Dependency Injection (DI)**: All dependencies are passed through constructors, making the system highly testable and loosely coupled.
+
 ![alt text](image.png)
 ---
 
