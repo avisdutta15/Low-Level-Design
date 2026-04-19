@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.11.35312.102
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "1.URLShotenerV1", "1.URLShotenerV1\1.URLShotenerV1.csproj", "{A2A6AB80-0237-4C7F-BF19-29C07E547A19}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "URLShotenerV2", "URLShotenerV2\URLShotenerV2.csproj", "{D109C0C6-7DBF-4C6E-BE45-64E82453377A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{101FC6C5-3ECA-4364-A3BD-C7174AA3659B}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A2A6AB80-0237-4C7F-BF19-29C07E547A19}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2A6AB80-0237-4C7F-BF19-29C07E547A19}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2A6AB80-0237-4C7F-BF19-29C07E547A19}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2A6AB80-0237-4C7F-BF19-29C07E547A19}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D109C0C6-7DBF-4C6E-BE45-64E82453377A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D109C0C6-7DBF-4C6E-BE45-64E82453377A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D109C0C6-7DBF-4C6E-BE45-64E82453377A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D109C0C6-7DBF-4C6E-BE45-64E82453377A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {621805D5-537A-4E5E-B774-5AEC5D72DB20}
+	EndGlobalSection
+EndGlobal
