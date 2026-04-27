@@ -1,0 +1,12 @@
+1. Simple Task Schedular (done)
+2. Multithreaded Task Schedular (done)
+	public void Shutdown()
+    {
+        _cts.Cancel();
+        for(int i=0; i<_workers.Length; i++)
+            _workers[i].Join(TimeSpan.FromSeconds(5));      //Why This Join?
+
+        Console.WriteLine("Shutting Down!");
+    }
+3. Multithreaded Task Schedular with Recurring Task (done)
+4. Multithreaded Task Schedular with Recurring Task + Task Dependency (done)
