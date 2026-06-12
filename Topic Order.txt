@@ -74,6 +74,18 @@ Design Online Stock Exchange
 Design a Digital Wallet Service
 
 
+Some Extended systems
+1. Feature Flag system - Interfaces, rules engine, extensibility
+2. Retry + Backoff Library - Strategy Pattern, pluggable policies
+3. Notification Routing System - Channels, prioritiesm templates.
+4. Rate Limiter - Algorithms, abstractions, thread safety
+5. Circuit Breaker - Statesm transitions, failure thresholds
+6. Metrics Aggregator - Time Windows, aggregation Logic, concurrency
+7. Configuration Manager - Versioning, Caching, Listeners.
+8. Payment Processing Flows - State Machines, Idempotency, Validations.
+9. Cache Library - Eviction Policy, Extensible storage.
+10. Job Schedular - Workers, queues, retires, priorities.
+
 
 
 WarmUp:
