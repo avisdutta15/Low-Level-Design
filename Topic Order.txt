@@ -31,10 +31,10 @@ Design ATM
 Design Vending Machine
 Design Traffic Control System
 Design Coffee Vending Machine
+Design Task Management System
 
 5. Management Systems
 Design Parking Lot
-Design Task Management System
 Design Inventory Management System
 Design Library Management System
 Design Restaurant Management System
