@@ -1,0 +1,185 @@
+@startuml ParkingLot
+
+skinparam classAttributeIconSize 0
+skinparam groupInheritance 2
+
+' ─────────────────────────────────────────
+' Enums
+' ─────────────────────────────────────────
+enum VehicleType {
+    CAR
+    BIKE
+    TRUCK
+}
+
+enum PaymentMode {
+    CARD
+    UPI
+    CASH
+}
+
+' ─────────────────────────────────────────
+' Vehicle Hierarchy
+' ─────────────────────────────────────────
+abstract class Vehicle {
+    + Type : VehicleType
+    + Number : string
+}
+
+class Car {
+    + Car(number: string)
+}
+
+class Bike {
+    + Bike(number: string)
+}
+
+class Truck {
+    + Truck(number: string)
+}
+
+Vehicle <|-- Car
+Vehicle <|-- Bike
+Vehicle <|-- Truck
+Vehicle --> VehicleType
+
+' ─────────────────────────────────────────
+' Ticket
+' ─────────────────────────────────────────
+class Ticket {
+    + Id : Guid
+    + EntryTime : DateTime
+    + Vehicle : Vehicle
+    + ParkingFloorId : string
+    + ParkingSpotId : string
+    + ParkingPaid : bool
+}
+
+Ticket --> Vehicle
+
+' ─────────────────────────────────────────
+' Parking Entities
+' ─────────────────────────────────────────
+class ParkingSpot {
+    + Id : string
+    + VehicleType : VehicleType
+    - _occupied : int
+    + IsOccupied() : bool
+    + TryOccupy() : bool
+    + Vacate() : bool
+}
+
+class ParkingFloor {
+    + Id : string
+    - _parkingSpots : ConcurrentDictionary<string, ParkingSpot>
+    + AddParkingSpot(spot: ParkingSpot) : void
+    + RemoveParkingSpot(spotId: string) : void
+    + BookParkingSpot(vehicle: Vehicle) : ParkingSpot?
+    + RemoveVehicleFromSpot(spotId: string) : bool
+    + AvailableSpotsByType() : Dictionary<VehicleType, int>
+}
+
+class ParkingLot {
+    + Id : string
+    - _parkingFloors : ConcurrentDictionary<string, ParkingFloor>
+    - _activeTickets : ConcurrentDictionary<Guid, Ticket>
+    - _observers : List<IParkingObserver>
+    + AddParkingFloor(floor: ParkingFloor) : void
+    + RemoveParkingFloor(floor: ParkingFloor) : bool
+    + ParkVehicle(vehicle: Vehicle) : Ticket?
+    + UnParkVehicle(ticket: Ticket, exitTime: DateTime, mode: PaymentMode) : bool
+    + Subscribe(observer: IParkingObserver) : void
+    + Unsubscribe(observer: IParkingObserver) : void
+    + Notify() : void
+}
+
+ParkingSpot --> VehicleType
+ParkingFloor "1" *-- "many" ParkingSpot
+ParkingLot "1" *-- "many" ParkingFloor
+ParkingLot "1" *-- "many" Ticket
+
+' ─────────────────────────────────────────
+' Pricing Strategy
+' ─────────────────────────────────────────
+interface IPricingStrategy {
+    + CalculateFee(vehicle: Vehicle, entryTime: DateTime, exitTime: DateTime) : double
+}
+
+class TimeBasedPricing {
+    - _peakHours : HashSet<int>
+    - _rates : Dictionary<VehicleType, PricingRate>
+    + CalculateFee(vehicle: Vehicle, entryTime: DateTime, exitTime: DateTime) : double
+}
+
+class EventBasedPricing {
+    - _rates : Dictionary<VehicleType, double>
+    + CalculateFee(vehicle: Vehicle, entryTime: DateTime, exitTime: DateTime) : double
+}
+
+IPricingStrategy <|.. TimeBasedPricing
+IPricingStrategy <|.. EventBasedPricing
+ParkingLot --> IPricingStrategy
+
+' ─────────────────────────────────────────
+' Payment Strategy
+' ─────────────────────────────────────────
+interface IPaymentStrategy {
+    + Pay(ticket: Ticket, amount: double) : bool
+}
+
+class CashPayment {
+    + Pay(ticket: Ticket, amount: double) : bool
+}
+
+class CardPayment {
+    + Pay(ticket: Ticket, amount: double) : bool
+}
+
+class UPIPayment {
+    + Pay(ticket: Ticket, amount: double) : bool
+}
+
+IPaymentStrategy <|.. CashPayment
+IPaymentStrategy <|.. CardPayment
+IPaymentStrategy <|.. UPIPayment
+
+' ─────────────────────────────────────────
+' Factory
+' ─────────────────────────────────────────
+class PaymentStrategyFactory {
+    + {static} GetStrategy(mode: PaymentMode) : IPaymentStrategy
+}
+
+PaymentStrategyFactory ..> IPaymentStrategy : creates
+PaymentStrategyFactory --> PaymentMode
+ParkingLot ..> PaymentStrategyFactory : uses
+
+' ─────────────────────────────────────────
+' Observer Pattern
+' ─────────────────────────────────────────
+interface IParkingObserver {
+    + Update(availableSpots: Dictionary<VehicleType, int>) : void
+}
+
+interface IParkingSubject {
+    + Subscribe(observer: IParkingObserver) : void
+    + Unsubscribe(observer: IParkingObserver) : void
+    + Notify() : void
+}
+
+class DisplayBoard {
+    - _boardId : string
+    + Update(availableSpots: Dictionary<VehicleType, int>) : void
+}
+
+class MobileApp {
+    - _userId : string
+    + Update(availableSpots: Dictionary<VehicleType, int>) : void
+}
+
+IParkingObserver <|.. DisplayBoard
+IParkingObserver <|.. MobileApp
+IParkingSubject <|.. ParkingLot
+ParkingLot --> IParkingObserver : notifies
+
+@enduml
