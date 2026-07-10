@@ -369,7 +369,7 @@ Pick this when you have many threads calling `NotifyObservers` concurrently and 
 
 ---
 
-### Option E — Parallel notification dispatch with tasks
+### Option E — Parallel notification dispatch with tasks. Fire and forget
 
 ```csharp
 private readonly object _lock = new();
@@ -400,10 +400,20 @@ public async Task NotifyObserversAsync(string message)
         snapshot = _observers.ToArray();
     }
 
-    var tasks = snapshot.Select(observer =>
-        Task.Run(() => observer.Update(message)));
-
-    await Task.WhenAll(tasks);
+    foreach (var observer in _observers) 
+    {
+        Task.Run(() =>
+        {
+            try
+            {
+                observer.Update(message);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+        });
+    }
 }
 ```
 
@@ -418,7 +428,13 @@ public void NotifyObservers(string message)
         snapshot = _observers.ToArray();
     }
 
-    Parallel.ForEach(snapshot, observer => observer.Update(message));
+    Parallel.ForEach(snapshot, (observer) => {
+        try{
+            observer.Update(message);
+        }catch (Exception ex){
+            Console.WriteLine(ex.ToString());
+        }
+    });
 }
 ```
 
