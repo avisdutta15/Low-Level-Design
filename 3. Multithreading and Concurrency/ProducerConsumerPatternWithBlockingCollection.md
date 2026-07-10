@@ -7,6 +7,52 @@
 1. **Blocking** — consumers can block (sleep) until an item is available, instead of busy-spinning.
 2. **Bounding** — the collection can be capped at a maximum size, causing producers to block when full (back-pressure).
 
+### Basic Usage
+```csharp
+var collection = new BlockingCollection<int>(boundedCapacity: 100);
+
+// Producer Thread
+Task.Run(()=>{
+    foreach(var i in GetItems())
+        collection.Add(i);          // Blocks if Q is full!
+
+    // Signal the consumer that no new item will be enqueued
+    collection.CompleteAdding();
+});
+
+// Consumer Thread
+Task.Run(()=>{
+    foreach(var i in collection.GetConsumingEnumerable())       // Blocks if Q is empty!
+        Console.WriteLine(i);
+});
+```
+
+### State Management
+`BlockingCollection<T>`` has two independent boolean flags that combine to form its state:
+**IsAddingCompleted**
+- Set to true when `CompleteAdding()` is called
+- Means: "no new items will ever be enqueued"
+- Producers check this before calling `Add()` — if true, adding throws `InvalidOperationException`
+
+**IsCompleted**
+- `true` only when BOTH conditions are met:
+- `CompleteAdding()` has been called (`IsAddingCompleted == true`)
+- AND the queue is empty (all items have been consumed)
+This is the "fully done" signal for the consumer loop
+```
+                    CompleteAdding()
+                         │
+                         ▼
+┌─────────────┐    ┌─────────────────────┐    ┌──────────────┐
+│   Normal    │───►│  IsAddingCompleted  │───►│ IsCompleted  │
+│             │    │  = true             │    │ = true       │
+│ Adding: ✅  │    │                     │    │              │
+│ Taking: ✅  │    │  Adding: ❌         │    │ Adding: ❌   │
+│             │    │  Taking: ✅         │    │ Taking: ❌   │
+└─────────────┘    └─────────────────────┘    └──────────────┘
+                                                    ▲
+                                          queue becomes empty
+```
 ### Key Properties and Methods
 
 ```csharp
