@@ -16,9 +16,9 @@ Ease of Use: The client-facing API should be simple and intuitive for developers
 
 */
 
-using _1.BasicLoggigFramework.Appenders;
-using _1.BasicLoggigFramework.Core;
-using _1.BasicLoggigFramework.Formatters;
+using LoggingFramework.Appenders;
+using LoggingFramework.Core;
+using LoggingFramework.Formatters;
 
 LoggerManager loggerManager = LoggerManager.GetInstance();
 

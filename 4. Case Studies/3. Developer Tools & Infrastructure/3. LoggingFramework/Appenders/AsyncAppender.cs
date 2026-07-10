@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
-using _1.BasicLoggigFramework.Core;
+using LoggingFramework.Core;
 
-namespace _1.BasicLoggigFramework.Appenders;
+namespace LoggingFramework.Appenders;
 
 public class AsyncAppender : IAppender, IDisposable
 {

@@ -1,7 +1,7 @@
-using _1.BasicLoggigFramework.Core;
-using _1.BasicLoggigFramework.Formatters;
+using LoggingFramework.Core;
+using LoggingFramework.Formatters;
 
-namespace _1.BasicLoggigFramework.Appenders;
+namespace LoggingFramework.Appenders;
 
 public abstract class AppenderBase : IAppender
 {

@@ -874,6 +874,11 @@ Key guarantees:
 
 4. **What if `Dispose()` is never called?** — The consumer thread is marked `IsBackground = true`, which means the .NET runtime will terminate it when the application exits. In that case, messages still in the queue *would* be lost. This is why using `using var asyncLogger = new AsyncLogger(...)` (or explicitly calling `Dispose()`) is essential for graceful shutdown.
 
+
+---
+Refer to [BatchAndFlushProducerConsumer](./BatchAndFlushProducerConsumer.md)
+---
+
 ### Usage
 
 ```csharp
@@ -916,17 +921,17 @@ There are scenarios where a single consumer becomes a bottleneck:
 Rather than adding N consumer threads pulling from one shared queue (which creates contention and ordering headaches), the cleaner architecture is to push the async boundary down to the appender level:
 
 ```
-                                    ┌─────────────┐   queue   ┌──────────────┐
-                                ┌──►│AsyncAppender │──────────►│ConsoleAppender│
-                                │   │  (thread 1)  │           └──────────────┘
+                                    ┌─────────────┐   queue   ┌───────────────┐
+                                ┌──►│AsyncAppender│──────────►│ConsoleAppender│
+                                │   │  (thread 1) │           └───────────────┘
                                 │   └─────────────┘
-  ┌──────┐     ┌───────┐       │
-  │Caller│────►│ Logger │───────┤
-  └──────┘     └───────┘       │
-                                │   ┌─────────────┐   queue   ┌──────────────┐
+  ┌──────┐     ┌───────┐        │
+  │Caller│────►│ Logger│────────┤
+  └──────┘     └───────┘        │
+                                │   ┌──────────────┐   queue   ┌───────────────┐
                                 └──►│AsyncAppender │──────────►│  DBAppender   │
-                                    │  (thread 2)  │           └──────────────┘
-                                    └─────────────┘
+                                    │  (thread 2)  │           └───────────────┘
+                                    └──────────────┘
 ```
 
 Each `AsyncAppender` wraps a single inner `IAppender` with its own `BlockingCollection` and dedicated consumer thread. This way:

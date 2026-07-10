@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
 
-namespace _1.BasicLoggigFramework.Core;
+namespace LoggingFramework.Core;
 
 public class LoggerManager
 {

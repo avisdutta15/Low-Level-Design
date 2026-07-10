@@ -1,6 +1,6 @@
-﻿using _1.BasicLoggigFramework.Core;
+﻿using LoggingFramework.Core;
 
-namespace _1.BasicLoggigFramework.Formatters;
+namespace LoggingFramework.Formatters;
 
 public class TextFormatter : IFormatter
 {

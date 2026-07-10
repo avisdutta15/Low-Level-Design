@@ -1,7 +1,7 @@
 ﻿using System.Collections.Immutable;
-using _1.BasicLoggigFramework.Appenders;
+using LoggingFramework.Appenders;
 
-namespace _1.BasicLoggigFramework.Core;
+namespace LoggingFramework.Core;
 
 public sealed class Logger : ILogger
 {
