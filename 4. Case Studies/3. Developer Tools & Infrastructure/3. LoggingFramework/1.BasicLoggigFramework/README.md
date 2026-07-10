@@ -48,25 +48,130 @@ A value object representing a single log entry:
 - `Exception?` — optional exception context
 
 ### ILogger (Interface)
-The contract every logger must implement. Defines convenience methods: `Debug()`, `Info()`, `Warn()`, `Error()`, `Fatal()`. This interface is the key to the Decorator pattern — both `Logger` and `AsyncLogger` implement it, making them interchangeable.
-
+- The contract every logger must implement. 
+- Defines convenience methods: `Debug()`, `Info()`, `Warn()`, `Error()`, `Fatal()`. This interface is the key to the Decorator pattern — both `Logger` and `AsyncLogger` implement it, making them interchangeable.
+```csharp
+public interface ILogger
+{
+    void Debug(string message, Exception? ex = null);
+    void Info(string message, Exception? ex = null);
+    void Warn(string message, Exception? ex = null);
+    void Error(string message, Exception? ex = null);
+    void Fatal(string message, Exception? ex = null);
+}
+```
 ### Logger
-The core synchronous logger. Holds a list of appenders and a minimum log level. When a message is logged, it checks the level filter and dispatches to all registered appenders.
+The core synchronous logger. 
+ - Holds a list of appenders and has a minimum log level. 
+ - When a message is logged, it checks the level filter and dispatches to all registered appenders.
 
+```csharp
+public class Logger : ILogger{
+    private ImmutableList<IAppender> _appenders = ImmutableList<IAppender>.Empty;
+    private LogLevel _minimumLogLevel;
+
+    public Logger(LogLevel minimumLogLevel = LogLevel.Debug)
+    {
+        _minimumLogLevel = minimumLogLevel;
+    }
+
+    public Logger AddAppender(IAppender appender)
+    {
+        ImmutableInterlocked.Update(ref _appenders, list => list.Add(appender));
+        return this;    // for fluent builder pattern
+    }
+
+    public Logger AddMinimumLevel(LogLevel minimumLogLevel) 
+    {
+        _minimumLogLevel = minimumLogLevel;
+        return this;
+    }
+
+    private void Log(LogMessage logMessage)
+    {
+        if (logMessage.Level < _minimumLogLevel)
+            return;
+
+        // ImmutableList has snapshot semantic in-built
+        foreach (var appender in _appenders)
+        {
+            appender.Append(logMessage);
+        }
+    }
+
+    void Debug(string message, Exception? ex = null)
+    {
+        Log(new LogMessage(LogLevel.Debug, message, ex));
+    }
+
+    // Similar implementation for the below ones
+    void Info(string message, Exception? ex = null);
+    void Warn(string message, Exception? ex = null);
+    void Error(string message, Exception? ex = null);
+    void Fatal(string message, Exception? ex = null); 
+}   
+
+```
 ### LoggerManager (Singleton)
-A thread-safe singleton that manages named `Logger` instances using a `ConcurrentDictionary`. Uses `Lazy<T>` for safe, efficient initialization.
+- A thread-safe singleton that manages named `Logger` instances using a `ConcurrentDictionary`. 
+- Uses `Lazy<T>` for safe, efficient initialization.
+
+```csharp
+public class LoggerManager
+{
+    private static readonly Lazy<LoggerManager> _instance = new(() => new LoggerManager());
+    private readonly ConcurrentDictionary<string, Logger> _loggers;
+
+    private LoggerManager()
+    {
+        _loggers = new ConcurrentDictionary<string, Logger>();
+    }
+
+    public static LoggerManager GetInstance() => _instance.Value;
+
+    public Logger GetOrAddLogger(string name)
+    {
+        return _loggers.GetOrAdd(name, _ => new Logger());
+    }
+}
+```
+
 
 ### IAppender (Interface)
-The contract for output destinations. A single method: `Append(LogMessage message)`.
+- The contract for output destinations. 
+- A single method: `Append(LogMessage message)`.
 
-### AppenderBase (Abstract Class)
-Shared base for all appenders. Holds an optional `IFormatter` and provides `FormatMessage()` — if no formatter is set, falls back to `LogMessage.ToString()`.
+```csharp
+public interface IAppender
+{
+    public void Append(LogMessage message);
+}
+```
 
 ### ConsoleAppender / FileAppender
-Concrete appenders that write to `Console` and to a timestamped log file respectively. Both extend `AppenderBase`.
+- Concrete appenders that write to `Console` and to a timestamped log file respectively. 
+- Both extend `IAppender`.
+
+```csharp
+public class ConsoleAppender : IAppender
+{
+    public void Append(LogMessage message)
+    {
+        Console.WriteLine(message.ToString());
+    }
+}
+```
 
 ### IFormatter (Interface)
-The contract for message formatting. A single method: `string Format(LogMessage message)`.
+- The contract for message formatting. 
+- A single method: `string Format(LogMessage message)`.
+
+```csharp
+public interface IFormatter
+{
+    string Format(LogMessage message);
+}
+```
 
 ### TextFormatter
 Concrete formatter that produces output like:
@@ -74,17 +179,207 @@ Concrete formatter that produces output like:
 [2025-01-15 14:30:45.123] - [Info] - [User logged in]
 ```
 
+```csharp
+public class TextFormatter : IFormatter
+{
+    public string Format(LogMessage message)
+    {
+        if (message.Exception == null)
+            return $"[{message.TimeStamp:yyyy-MM-dd HH:mm:ss.fff}] - [{message.Level}] - [{message.Message}]";
+        return $"[{message.TimeStamp:yyyy-MM-dd HH:mm:ss.fff}] - [{message.Level}] - [{message.Message}] - [Exception: {message.Exception}]";
+    }
+}
+```
+----
+- **We have a requirement that appenders can have formatters.**
+- **In other words, ConsoleAppender can take a TextFormatter and log the message.**
+- **If ConsoleAppender wants then it maynot take any formatter and use the default message.ToString() format.**
+
+```csharp
+public class ConsoleAppender : IAppender
+{
+    // Formatter is optional, if not provided,
+    // default formatter of the LogMessage will be used
+    private IFormatter? _formatter;
+    public ConsoleAppender(IFormatter? formatter = null)
+    {
+        _formatter = formatter;
+    }
+
+    public void Append(LogMessage message)
+    {
+        Console.WriteLine(FormatMessage(message));
+    }
+
+    public void SetFormatter(IFormatter formatter)
+    {
+        _formatter = formatter;
+    }
+
+    private string FormatMessage(LogMessage message) 
+    {
+        string formattedMessage = message.ToString();
+        if (_formatter != null)
+        {
+            formattedMessage = _formatter.Format(message);
+        }
+        return formattedMessage;
+    }
+}
+```
+
+If we observe the above code, for all the appenders we would have to give it the 
+flexibility to either add the formatter or skip it. So the code for 
+SetFormatter(IFormatter formatter), FormatMessage(LogMessage message) will be repeated
+in every Appender.
+--
+We can extract the common methods to a base abstract class and let the ConsoleAppender class
+inherit from abstract class and the interface.
+----
+### AppenderBase (Abstract Class)
+- Shared base for all appenders. 
+- Holds an optional `IFormatter` and provides `FormatMessage()` — if no formatter is set, falls back to `LogMessage.ToString()`.
+
+```csharp
+public abstract class AppenderBase : IAppender
+{
+    private IFormatter? _formatter;
+
+    // Protected Constructor to be used by child classes
+    protected AppenderBase(IFormatter? formatter = null)
+    {
+        _formatter = formatter;
+    }
+
+    public void SetFormatter(IFormatter formatter)
+    {
+        _formatter = formatter;
+    }
+
+    protected string FormatMessage(LogMessage message) 
+    {
+        string formattedMessage = message.ToString();
+        if (_formatter != null)
+        {
+            formattedMessage = _formatter.Format(message);
+        }
+        return formattedMessage;
+    }
+}
+```
+
+```
+public class ConsoleAppender : AppenderBase, IAppender
+{
+    // _formatter is inherited via inheritance of AppenderBase
+    // constructor inject the Formatter to AppenderBase
+    public ConsoleAppender(IFormatter? formatter = null) : base(formatter)
+    { }
+
+    public void Append(LogMessage message)
+    {
+        Console.WriteLine(FormatMessage(message));
+    }
+}
+```
+---
+**1. Should AppenderBase inherit IAppender and concrete classes inherit
+only AppenderBase**
+```
+    IAppender
+    └── AppenderBase (abstract)
+            └── ConsoleAppender
+```
+**2. or AppenderBase doesnot inherit from IAppender and ConsoleAppender inherits from both**
+```
+IAppender       AppenderBase
+    └──────────────┘
+           |
+     ConsoleAppender
+
+```
+
+Answer:
+For
+```
+    IAppender
+    └── AppenderBase (abstract)
+            └── ConsoleAppender
+```
+- `AppenderBase` declares `public abstract void Append(LogMessage message)` — enforcing the contract at the base level
+- `ConsoleAppender` only needs to implement `Append()`, nothing else
+- Any code accepting `IAppender` automatically works with `AppenderBase` and all its children — clean `Liskov substitution`
+- The relationship reads naturally: `"AppenderBase is an IAppender"`
+
+For
+```
+IAppender       AppenderBase
+    └──────────────┘
+           |
+     ConsoleAppender
+
+```
+- C# supports multiple inheritance only for interfaces, so this is technically valid — but it's a design smell
+- `ConsoleAppender` now has two separate "reasons" to implement `Append()` — from `IAppender` directly AND from `AppenderBase` — creating ambiguity
+- If someone adds a new appender and forgets to inherit `AppenderBase`, they still satisfy `IAppender` but miss all the shared formatter logic silently
+---
+
 ### AsyncLogger (Decorator)
 A non-blocking decorator that wraps any `ILogger`. Uses a producer-consumer queue with batching. Detailed in the AsyncLogger section below.
 
 ---
 
+```csharp
+public abstract class AppenderBase : IAppender
+{
+    private IFormatter? _formatter;
+
+    // Protected Constructor to be used by child classes
+    protected AppenderBase(IFormatter? formatter = null)
+    {
+        _formatter = formatter;
+    }
+
+    public void SetFormatter(IFormatter formatter)
+    {
+        _formatter = formatter;
+    }
+
+    protected string FormatMessage(LogMessage message)
+    {
+        // if the formatter is set, then use it. Else fallback to logmessage.ToString()
+        if (_formatter != null)
+            return _formatter.Format(message);
+
+        return message.ToString();
+    }
+
+    // Inherited from IAppender. Passed on as abstract to child classes for
+    // implementation
+    public abstract void Append(LogMessage message);
+}
+```
+
+```csharp
+public class ConsoleAppender : AppenderBase
+{
+    // _formatter is inherited via inheritance of AppenderBase
+    // constructor inject the Formatter to AppenderBase
+    public ConsoleAppender(IFormatter? formatter = null) : base(formatter)
+    { }
+
+    public override void Append(LogMessage message)
+    {
+        Console.WriteLine(FormatMessage(message));
+    }
+}
+```
 ## Class Diagram
 
 ```
                     ┌──────────────┐
-                    │  «interface»  │
-                    │   ILogger     │
+                    │  «interface» │
+                    │   ILogger    │
                     │──────────────│
                     │ +Debug()     │
                     │ +Info()      │
@@ -96,61 +391,82 @@ A non-blocking decorator that wraps any `ILogger`. Uses a producer-consumer queu
               ┌────────────┴────────────┐
               │                         │
      ┌────────┴────────┐     ┌─────────┴─────────┐
-     │     Logger       │     │   AsyncLogger      │
-     │─────────────────│     │  «decorator»       │
+     │     Logger      │     │   AsyncLogger     │
+     │─────────────────│     │  «decorator»      │
      │ -_appenders     │     │───────────────────│
-     │ -_minimumLevel  │     │ -_inner: ILogger   │
-     │─────────────────│     │ -_queue            │
-     │ +AddAppender()  │     │ -_batchSize        │
-     │ +AddMinimumLevel│     │ -_flushInterval    │
+     │ -_minimumLevel  │     │ -_inner: ILogger  │
+     │─────────────────│     │ -_queue           │
+     │ +AddAppender()  │     │ -_batchSize       │
+     │ +AddMinimumLevel│     │ -_flushInterval   │
      │ -Log()          │     │───────────────────│
-     └────────┬────────┘     │ -Enqueue()         │
-              │               │ -ProcessQueue()    │
-              │ uses          │ -FlushBatch()      │
-              ▼               │ +Dispose()         │
-     ┌────────────────┐      └─────────────────────┘
-     │  «interface»    │
-     │   IAppender     │
+     └────────┬────────┘     │ -Enqueue()        │
+              │              │ -ProcessQueue()   │
+              │ uses         │ -FlushBatch()     │
+              ▼              │ +Dispose()        |
+     ┌────────────────┐      └───────────────────┘
+     │  «interface»   │
+     │   IAppender    │
      │────────────────│
-     │ +Append()       │
+     │   +Append()    │
      └───────┬────────┘
              │ implements
-    ┌────────┴──────────┐
-    │                    │
-┌───┴──────────┐  ┌─────┴──────────┐
-│ AppenderBase  │  │  «interface»    │
-│ «abstract»    │  │  IFormatter     │
-│──────────────│  │────────────────│
-│ -_formatter   │  │ +Format()      │
-│──────────────│  └───────┬────────┘
-│ #FormatMessage│          │ implements
-│ +SetFormatter │          │
-│ +Append()     │   ┌──────┴────────┐
-└──────┬───────┘   │ TextFormatter  │
-       │            └───────────────┘
+    ┌────────┴──────────---┐
+    │                      │
+┌───┴──────────---┐  ┌─────┴──────────┐
+│ AppenderBase    │  │  «interface»   │
+│ «abstract»      │  │  IFormatter    │
+│──────────────---│  │────────────────│
+│ -_formatter     │  │ +Format()      │
+│──────────────---│  └───────┬────────┘
+│ #FormatMessage()│          │ implements
+│ +SetFormatter() │          │
+│ +Append()       │   ┌──────┴────────┐
+└──────┬───────---┘   │ TextFormatter │
+       │              └───────────────┘
   ┌────┴──────────────┐
-  │                    │
+  │                   │
 ┌─┴──────────────┐ ┌──┴─────────────┐
-│ConsoleAppender  │ │ FileAppender    │
+│ConsoleAppender │ │ FileAppender   │
 │────────────────│ │────────────────│
-│+Append()       │ │ -_writer        │
-└────────────────┘ │+Append()       │
-                   │+Dispose()      │
+│   +Append()    │ │ -_writer       │
+└────────────────┘ │ +Append()      │
+                   │ +Dispose()     │
                    └────────────────┘
 
      ┌──────────────────┐
-     │  LoggerManager    │
-     │  «singleton»      │
+     │  LoggerManager   │
+     │  «singleton»     │
      │──────────────────│
-     │ -_instance: Lazy  │
-     │ -_loggers: Dict   │
+     │ -_instance: Lazy │
+     │ -_loggers: Dict  │
      │──────────────────│
-     │ +GetInstance()    │
-     │ +GetOrAddLogger() │
+     │ +GetInstance()   │
+     │ +GetOrAddLogger()│
      └──────────────────┘
 ```
 
 ---
+
+### LoggerManager
+```csharp
+public class LoggerManager
+{
+    private static readonly Lazy<LoggerManager> _instance = new(() => new LoggerManager());
+    private readonly ConcurrentDictionary<string, Logger> _loggers;
+
+    private LoggerManager()
+    {
+        _loggers = new ConcurrentDictionary<string, Logger>();
+    }
+
+    public static LoggerManager GetInstance() => _instance.Value;
+
+    public Logger GetOrAddLogger(string name)
+    {
+        return _loggers.GetOrAdd(name, _ => new Logger());
+    }
+}
+```
 
 ## Design Patterns Used
 
@@ -252,12 +568,19 @@ private volatile ImmutableList<IAppender> _appenders = ImmutableList<IAppender>.
 
 public Logger AddAppender(IAppender appender)
 {
+    // CoW as CAS Loop!
     ImmutableList<IAppender> original, updated;
     do
     {
         original = _appenders;
         updated = original.Add(appender);
     } while (Interlocked.CompareExchange(ref _appenders, updated, original) != original);
+
+    or 
+
+    // This is a more concise way of doing the same thing as above
+    ImmutableInterlocked.Update(ref _appenders, list => list.Add(appender));
+
     return this;
 }
 
@@ -265,8 +588,8 @@ private void Log(LogMessage logMessage)
 {
     if (logMessage.Level < _minimumLogLevel) return;
 
-    var appenders = _appenders;  // snapshot the reference
-    foreach (var appender in appenders)
+    // ImmutableList has inbuilt snapshot semantics
+    foreach (var appender in _appenders)
         appender.Append(logMessage);
 }
 ```
@@ -276,8 +599,8 @@ private void Log(LogMessage logMessage)
 2. `AddAppender()` reads the current list, creates a new list with the appender added, and atomically swaps the reference using `Interlocked.CompareExchange` (CAS). If another thread modified it in between, the CAS fails and we retry.
 3. `Log()` captures the reference into a local variable (snapshot) and iterates it. Since the list is immutable, no concurrent modification can occur.
 
-**Why the snapshot in `Log()`?**
-The `ImmutableList` itself can't change, but the `_appenders` *field reference* can be swapped at any time by `AddAppender()`. Without the local snapshot, the JIT could re-read the field multiple times within the method, potentially seeing different list instances between the level check and the iteration. The local variable guarantees we work with one consistent list.
+**Why there is no snapshot in `Log()`?**
+No, `ImmutableList<T>` does not need to be manually snapshotted. By design, it inherently acts as a `thread-safe snapshot`. When you call methods like `Add()` or `Remove()`, the original list remains untouched, and a completely new `ImmutableList<T>` instance is returned.
 
 **Pros:**
 - Zero locks on the hot path (reading). Just a volatile read + local assignment.
