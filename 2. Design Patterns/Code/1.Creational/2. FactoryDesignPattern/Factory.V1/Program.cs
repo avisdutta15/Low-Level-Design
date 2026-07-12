@@ -4,7 +4,7 @@
 // V1: WHY DO WE NEED THE FACTORY PATTERN?
 // =============================================================================
 //
-// Problem: Client code is tightly coupled to concrete implementations.
+// Problem: Client code is tightly coupled to concrete repository implementations.
 // When the client uses `new` directly, it must know the exact class to
 // instantiate — this violates the Open/Closed Principle and makes the
 // code rigid, hard to extend, and difficult to test.
@@ -14,28 +14,28 @@ Console.WriteLine("=== Without Factory: The Problem ===");
 Console.WriteLine();
 
 // The client must know EVERY concrete class and decide which one to create.
-// If we add a new notification type, we must modify EVERY place that creates notifications.
+// If we add a new storage provider, we must modify EVERY place that creates repositories.
 
-string userChoice = "email";
+string storageType = "s3";
 
-INotification notification;
+IFileRepository repository;
 
-// This switch/if block is duplicated everywhere a notification is needed
-if (userChoice == "email")
-    notification = new EmailNotification();
-else if (userChoice == "sms")
-    notification = new SmsNotification();
-else if (userChoice == "push")
-    notification = new PushNotification();
+// This switch/if block is duplicated everywhere a repository is needed
+if (storageType == "s3")
+    repository = new S3FileRepository();
+else if (storageType == "local")
+    repository = new LocalFileRepository();
+else if (storageType == "azure")
+    repository = new AzureBlobFileRepository();
 else
-    throw new ArgumentException($"Unknown notification type: {userChoice}");
+    throw new ArgumentException($"Unknown storage type: {storageType}");
 
-notification.Send("Hello from V1!");
+repository.Upload("report.pdf", new byte[] { 1, 2, 3 });
 
 Console.WriteLine();
 Console.WriteLine("=== Problems with this approach ===");
-Console.WriteLine("1. Client is tightly coupled to concrete classes (knows EmailNotification, SmsNotification, etc.)");
-Console.WriteLine("2. Adding a new type (e.g., WhatsApp) requires changing EVERY place that creates notifications");
+Console.WriteLine("1. Client is tightly coupled to concrete classes (knows S3FileRepository, LocalFileRepository, etc.)");
+Console.WriteLine("2. Adding a new provider (e.g., GCS) requires changing EVERY place that creates repositories");
 Console.WriteLine("3. Violates Open/Closed Principle — not open for extension without modification");
 Console.WriteLine("4. Violates Single Responsibility — client both creates AND uses objects");
 Console.WriteLine("5. Hard to unit test — can't mock the creation logic");
