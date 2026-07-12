@@ -29,10 +29,6 @@ The Builder pattern is a **creational design pattern** that separates the constr
 
 ---
 
-![alt text](./assets/image-3.png)
-![alt text](./assets/image-4.png)
-![alt text](./assets/image-5.png)
-
 ## UML Diagram
 
 ```
