@@ -27,10 +27,6 @@ The Decorator pattern is a **structural design pattern** that lets you attach ne
 
 ---
 
-![alt text](./assets/image-6.png)
-![alt text](./assets/image-7.png)
-
-
 ## UML Diagram
 
 ```
