@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChainOfResponsibility.V1", "ChainOfResponsibility.V1\ChainOfResponsibility.V1.csproj", "{E5C9A985-AFAE-46B2-86AF-14DA6330B79C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChainOfResponsibility.V2", "ChainOfResponsibility.V2\ChainOfResponsibility.V2.csproj", "{9E70DC81-C2A2-4DDA-9F03-1F1E19748DDA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E5C9A985-AFAE-46B2-86AF-14DA6330B79C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E5C9A985-AFAE-46B2-86AF-14DA6330B79C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E5C9A985-AFAE-46B2-86AF-14DA6330B79C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E5C9A985-AFAE-46B2-86AF-14DA6330B79C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9E70DC81-C2A2-4DDA-9F03-1F1E19748DDA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9E70DC81-C2A2-4DDA-9F03-1F1E19748DDA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9E70DC81-C2A2-4DDA-9F03-1F1E19748DDA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9E70DC81-C2A2-4DDA-9F03-1F1E19748DDA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

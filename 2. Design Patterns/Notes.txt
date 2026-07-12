@@ -49,14 +49,3 @@ https://www.youtube.com/watch?v=aBOrVRKK3fA
 
 
 
-6 Steps to LLD:
-1. OOPs + UML + ERD
-2. SOLID
-3. Design patterns
-4. Concurrency
-    Building Thread Pool
-    Bounded Blocking Queue
-    Rate Limiter
-5. Learn a Framework -
-    How to answer the questions in a structured manner
-6. Practice Known Interview Questions
