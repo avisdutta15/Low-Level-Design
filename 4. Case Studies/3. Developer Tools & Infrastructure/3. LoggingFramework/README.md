@@ -1,4 +1,4 @@
-# Basic Logging Framework
+# Logging Framework
 
 ## Problem Statement
 
