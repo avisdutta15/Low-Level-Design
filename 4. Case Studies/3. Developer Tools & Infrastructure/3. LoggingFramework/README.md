@@ -639,22 +639,22 @@ We chose the Decorator pattern so that async behavior is layered on top of any e
 Application Code
        │
        ▼
-  ┌──────────┐    enqueue     ┌─────────────────────┐
+  ┌───────────┐    enqueue    ┌──────────────────────┐
   │AsyncLogger│ ──────────►   │ BlockingCollection   │
   │(decorator)│               │ (bounded queue)      │
-  └──────────┘               └──────────┬────────────┘
+  └───────────┘               └──────────┬───────────┘
                                          │ consumer thread
                                          ▼
-                              ┌─────────────────────┐
+                              ┌──────────────────────┐
                               │   Batch (List)       │
                               │ drain up to N items  │
                               └──────────┬───────────┘
                                          │ flush
                                          ▼
-                              ┌─────────────────────┐
+                              ┌──────────────────────┐
                               │   Inner ILogger      │
                               │ (Logger + appenders) │
-                              └─────────────────────┘
+                              └──────────────────────┘
 ```
 
 ### What Changed in the Original Code
