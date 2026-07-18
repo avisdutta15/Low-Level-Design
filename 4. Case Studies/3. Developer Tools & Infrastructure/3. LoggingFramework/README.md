@@ -6,6 +6,39 @@ Modern applications need a structured, extensible logging system that can write 
 
 ---
 
+## Contents
+
+- [Functional Requirements](#functional-requirements)
+- [Non-Functional Requirements](#non-functional-requirements)
+- [Core Entities](#core-entities)
+  - [LogLevel](#loglevel-enum)
+  - [LogMessage](#logmessage)
+  - [ILogger](#ilogger-interface)
+  - [Logger](#logger)
+  - [LoggerManager](#loggermanager-singleton)
+  - [IAppender](#iappender-interface)
+  - [ConsoleAppender / FileAppender](#consoleappender--fileappender)
+  - [IFormatter](#iformatter-interface)
+  - [TextFormatter](#textformatter)
+  - [AppenderBase](#appenderbase-abstract-class)
+  - [AsyncLogger](#asynclogger-decorator)
+- [Class Diagram](#class-diagram)
+- [Design Patterns Used](#design-patterns-used)
+- [Thread Safety: The Copy-on-Write Journey](#thread-safety-the-copy-on-write-journey)
+- [AsyncLogger: Non-Blocking Logging with Producer-Consumer Batching](#asynclogger-non-blocking-logging-with-producer-consumer-batching)
+  - [Design Pattern: Decorator](#design-pattern-decorator)
+  - [How the Processing Works](#how-the-processing-works--step-by-step)
+  - [Graceful Shutdown](#graceful-shutdown-what-happens-on-dispose)
+  - [Usage](#usage)
+  - [Why One Background Thread Is Enough](#why-one-background-thread-is-enough)
+  - [When One Thread Isn't Enough](#when-one-thread-isnt-enough)
+- [AsyncAppender Implementation](#asyncappender-implementation)
+  - [Why AsyncAppender Doesn't Inherit from AppenderBase](#why-asyncappender-doesnt-inherit-from-appenderbase)
+  - [Manual TryTake Loop vs GetConsumingEnumerable](#manual-trytake-loop-vs-getconsumingenumerable)
+- [Project Structure](#project-structure)
+
+---
+
 ## Functional Requirements
 
 | # | Requirement |
@@ -1123,6 +1156,37 @@ Console consumer thread              File consumer thread
 ```
 
 On shutdown, the `using` declarations ensure both `AsyncAppender` instances are disposed — each signals its queue, waits for its consumer thread to drain, and exits cleanly. No messages are lost.
+
+### Why AsyncAppender Doesn't Inherit from AppenderBase
+
+`AsyncAppender` implements `IAppender` directly rather than inheriting from `AppenderBase`. This is intentional — it's a **decorator**, not a concrete output appender.
+
+`AppenderBase` provides formatting infrastructure (`IFormatter`, `FormatMessage()`). Concrete appenders like `ConsoleAppender` and `FileAppender` need this because they render and write the log message to a destination.
+
+`AsyncAppender` doesn't format or write anything itself. It wraps another `IAppender` and adds async batching on top — it queues messages and forwards them to the inner appender, which handles the actual formatting and output.
+
+If `AsyncAppender` inherited from `AppenderBase`, it would carry a `_formatter` field it never uses (the inner appender already has its own formatter). This would be misleading and violate the single-responsibility principle.
+
+```
+IAppender
+├── AppenderBase (abstract)      ← provides formatting, expects subclasses to write output
+│   ├── ConsoleAppender          ← formats + writes to console
+│   ├── FileAppender             ← formats + writes to file
+│   └── DatabaseAppender         ← formats + writes to DB
+│
+└── AsyncAppender (decorator)    ← no formatting, just queues + forwards to inner IAppender
+```
+
+The pattern in use:
+
+```csharp
+// AsyncAppender wraps a concrete appender — it adds async behavior, the inner appender handles formatting + I/O
+new AsyncAppender(new ConsoleAppender(new TextFormatter()))
+```
+
+Clean separation: `AsyncAppender` owns the "when" (async batching), the inner appender owns the "how" (formatting + writing).
+
+---
 
 ### Manual TryTake Loop vs GetConsumingEnumerable
 
