@@ -902,7 +902,7 @@ asyncLogger.Error("Neither does this", new Exception("oops"));
 
 For most applications, a single consumer thread is sufficient. The bottleneck in logging is almost always I/O (writing to disk, console, network), not CPU. A single thread can saturate a disk's write throughput easily. Adding more consumer threads introduces complexity — ordering guarantees, lock contention on the `StreamWriter`, interleaved console output — without meaningful throughput gain when they're all writing to the same destination.
 
-#### When One Thread Isn't Enough
+### When One Thread Isn't Enough
 
 There are scenarios where a single consumer becomes a bottleneck:
 
