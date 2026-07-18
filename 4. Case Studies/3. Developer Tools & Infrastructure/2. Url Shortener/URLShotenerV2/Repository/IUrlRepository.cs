@@ -6,6 +6,7 @@ public interface IUrlRepository
 {
     Task AddUrlEntityAsync(UrlEntity entity);
     Task<UrlEntity?> GetEntityByAliasAsync(string shortUrl);
-    Task<bool> AliasExistsAsync(string alias);
+    Task<bool> ShortUrlExistsAsync(string alias);
     Task UpdateEntityAsync(UrlEntity urlEntity);
+    Task DeleteEntityAsync(UrlEntity urlEntity);
 }

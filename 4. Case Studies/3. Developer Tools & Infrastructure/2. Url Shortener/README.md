@@ -1,233 +1,291 @@
-# URL Shortener System
+# URL Shortener - Low Level Design
 
-A highly concurrent, object-oriented URL Shortener engine built in C#. This system is designed to handle high-throughput read/write operations while providing real-time analytics using advanced multithreading and design patterns.
-
-Whether the system is processing a steady stream of internal corporate links or surviving a massive traffic spike from a viral social media marketing campaign, the architecture ensures absolute data integrity, minimal latency, and zero deadlocks.
-
----
-
-## 1. Requirements
-
-### Functional Requirements
-
-- **Short Link Generation:** Automatically generate a unique, highly compact short URL for any given long URL to save character space and improve shareability.
-- **Custom Aliases:** Allow users to optionally specify a custom alias (e.g., converting a messy URL into something readable like `my-brand.co/spring-sale-2024`).
-- **Expirations:** Allow users to define optional expiration dates for short URLs, perfect for time-sensitive promotions or temporary file sharing.
-- **Redirection:** Redirect users to the original long URL seamlessly when the short URL is accessed, while gracefully denying access to expired links (e.g., returning a friendly "Link Expired" page or a `410 Gone` status).
-- **Conflict Handling:** Handle URL conflicts gracefully when a custom alias is already taken by prompting the user to select another, without throwing unhandled application errors.
-- **Analytics Tracking:** Track the exact number of times a short URL has been visited, capture the last accessed timestamp, and maintain a high-level, system-wide tally of active links and total clicks for administrative dashboards.
-
-### Non-Functional Requirements
-
-- **Uniqueness:** Each short URL (including custom aliases) must be strictly unique across the system to prevent disastrous misdirection of user traffic.
-- **Extensibility:** The design must be flexible enough to support future enhancements. For instance, the system should allow developers to seamlessly swap out the URL generation algorithm or migrate the underlying database without altering the core business logic.
-- **Maintainability:** Code should follow strict object-oriented principles (SOLID), featuring clean abstractions, dependency injection, and clear separation of concerns to make unit testing trivial.
-- **Concurrency & Thread Safety:** The system must survive a web-server environment with thousands of simultaneous requests (the "thundering herd" problem) without crashing, deadlocking, or losing critical analytical data.
+## Table of Contents
+- [1. Problem Statement](#1-problem-statement)
+- [2. Functional Requirements](#2-functional-requirements)
+- [3. Non-Functional Requirements](#3-non-functional-requirements)
+- [4. Core Entities](#4-core-entities)
+- [5. Relationships Between Entities](#5-relationships-between-entities)
+- [6. Design Patterns Used](#6-design-patterns-used)
+- [7. Class Diagram](#7-class-diagram)
+- [8. Code for Each Class and Interface](#8-code-for-each-class-and-interface)
+- [9. Evolution to V2](#9-evolution-to-v2)
 
 ---
 
-## 2. Core Entities
+## 1. Problem Statement
 
-The system centers around a core domain model supported by clear abstractions. By employing a "Rich Domain Model" rather than an anemic one, business rules remain tightly coupled to the data they govern:
-
-- **`UrlEntity`:** The primary domain model representing the URL mapping. It encapsulates its own internal state (managing the logic for checking its own expiration via `IsExpired()`) and safely tracks its own analytics (`TotalClicks`, `LastAccessed`) to prevent external classes from tampering with its properties.
-- **`SystemAnalytics`:** A Data Transfer Object (DTO) providing a read-only snapshot of system-wide metrics (`TotalLinks`, `TotalClicks`, `ActiveLinks`). This prevents the UI or API layers from accidentally modifying the raw analytical data.
-- **Custom Exceptions:** Domain-specific errors that enforce business rules without leaking internal state or stack traces to the end-user (e.g., `AliasAlreadyTakenException`, `UrlExpiredException`, `UrlNotFoundException`).
+Design a URL Shortener service that converts long URLs into short, unique aliases. When a user accesses the short URL, the system redirects them to the original long URL. The system should support custom aliases, link expiration, click tracking, and real-time analytics.
 
 ---
 
-## 3. Architecture & Class Diagram
+## 2. Functional Requirements
 
-The system heavily relies on several Gang of Four (GoF) design patterns to guarantee that the application remains loosely coupled and highly cohesive:
-
-- **Strategy Pattern (`IUrlGeneratorStrategy`):** Abstracts the URL generation algorithm. This allows the system to easily toggle between a Random Token generator (for unpredictable links) and a Counter-based Base62 generator (for sequential, guaranteed-unique links) via dependency injection.
-- **Repository Pattern (`IUrlRepository`):** Abstracts the entire data access layer. Because the core service only speaks to the `IUrlRepository` interface, the current in-memory dictionary implementation can be swapped for a distributed Redis cache or a persistent SQL Server database later with zero changes to the service layer.
-- **Observer Pattern (`IUrlSubject` / `IUrlObserver`):** Completely decouples the core URL shortening service from the analytics processing engine. It broadcasts events (`UrlCreated`, `UrlVisited`) so that analytics can be processed asynchronously without forcing the end-user to wait.
-
-### 3.2 Class Relationships
-
-The design strictly adheres to the **Dependency Inversion Principle (SOLID)**.
-
-- `UrlShortenerService` (the orchestrator) does not know how URLs are generated or how they are stored. It solely coordinates the workflow and aggregates analytics.
-
-- `UrlShortenerService` depends on the `IUrlGeneratorStrategy` interface to get a unique string.
-
-- `UrlShortenerService` depends on the `IUrlRepository` interface to check for conflicts, save the UrlEntry, and query system-wide analytics.
-
-- The `InMemoryUrlRepository` implements `IUrlRepository` and manages a collection of UrlEntry objects.
-
-### 3.3 Key Design Patterns
-
-1. **Strategy Pattern** (`IUrlGeneratorStrategy`): URL generation algorithms change frequently. The Strategy pattern allows us to swap generation logic without touching the core service.
-
-2. **Repository Pattern** (`IUrlRepository`): Abstracts the data layer. Today, we use an in-memory dictionary. Tomorrow, we can swap it for a `RedisUrlRepository` or `SqlUrlRepository` by simply injecting a new class, fulfilling the Extensibility requirement.
-
-3. **Dependency Injection (DI)**: All dependencies are passed through constructors, making the system highly testable and loosely coupled.
-
-![alt text](image.png)
----
-
-## 4. Implementation Details
-
-### 4.1 The Non-Concurrent Approach (The Pitfalls)
-
-In a standard, single-threaded implementation, a naive approach might use:
-
-- A standard `Dictionary<string, UrlEntity>` for storage.
-- `_totalClicks++` to record visits.
-- A standard `foreach` loop to notify observers synchronously.
-
-**Why this fails catastrophically in production:**
-
-If multiple web requests hit the server simultaneously, a standard `Dictionary` will corrupt. For example, if Thread A triggers the internal array to resize while Thread B is inserting a value, the application will throw a fatal `InvalidOperationException` and crash the request.
-
-Furthermore, concurrent clicks will overwrite each other because `++` is not an atomic operation (it involves reading the value, incrementing it in memory, and writing it back). If two threads read `100` at the same time, both will write `101`, resulting in permanently lost analytics.
-
-Finally, iterating over observers synchronously means if an analytics database write is slow, the user is left staring at a loading screen instead of being redirected.
-
-### 4.2 The Concurrent Implementation (The Robust Solution)
-
-To make the system bulletproof, thread-safe, and highly performant, the following concurrency mechanisms are utilized:
-
-- **`ConcurrentDictionary`:** Used in the `InMemoryUrlRepository`. Methods like `TryAdd` guarantee thread safety via fine-grained locking. If two users request the exact same custom alias simultaneously, the dictionary ensures only one succeeds, rejecting the other cleanly.
-- **`Interlocked.Increment(ref _totalClicks)`:** Used inside the `UrlEntity`. This forces a CPU-level lock (often implemented via a hardware `LOCK` instruction prefix) during the math operation. This guarantees that if 10,000 users click a viral link at the exact same millisecond, exactly 10,000 clicks are perfectly recorded with zero lost data.
-- **Internal Mutex (`lock`):** Used in the `RealTimeAnalyticsTracker` to protect internal state variables from race conditions while processing incoming system events across multiple threads.
+1. **Shorten URL** — Given a long URL, generate a unique short alias.
+2. **Custom Alias** — Allow users to provide a custom alias instead of auto-generating one.
+3. **Redirect** — Given a short URL, resolve and return the original long URL.
+4. **Link Expiration** — Support optional TTL (time-to-live) for short URLs.
+5. **Click Tracking** — Track total clicks and last accessed time for each short URL.
+6. **Analytics** — Provide real-time system-wide analytics (total links, total clicks, active links).
+7. **Duplicate Custom Alias Detection** — Reject custom aliases that are already taken.
 
 ---
 
-### 4.3. ShortenUrl Flow
+## 3. Non-Functional Requirements
+
+1. **Thread Safety** — The system must handle concurrent reads/writes safely.
+2. **Uniqueness** — Generated short URLs must be unique (retry on collision).
+3. **Extensibility** — The URL generation strategy should be pluggable (Strategy pattern).
+4. **Decoupled Analytics** — Analytics tracking should not be tightly coupled to core logic (Observer pattern).
+5. **Performance** — Analytics counters should be O(1) using atomic operations.
+
+---
+
+## 4. Core Entities
+
+Identified from functional requirements:
+
+| Entity | Responsibility |
+|--------|---------------|
+| **UrlEntity** | Stores the mapping between short URL and original URL, tracks clicks, expiration, and creation date. |
+| **SystemAnalytics** | Read-only snapshot of system-wide metrics (total links, clicks, active links). |
+| **UrlEventType** | Enum representing events in the system (`CREATED`, `VISITED`). |
+
+---
+
+## 5. Relationships Between Entities
+
+```
+UrlShortenerService ──uses──▶ IUrlRepository (stores/retrieves UrlEntity)
+UrlShortenerService ──uses──▶ IUrlGeneratorStrategy (generates short codes)
+UrlShortenerService ──implements──▶ ISubject (notifies observers on events)
+RealTimeAnalyticsTracker ──implements──▶ IObserver (reacts to URL events)
+RealTimeAnalyticsTracker ──produces──▶ SystemAnalytics
+UrlEntity ──contains──▶ UrlEventType (used in notifications)
+```
+
+---
+
+## 6. Design Patterns Used
+
+| Pattern | Where | Why |
+|---------|-------|-----|
+| **Strategy** | `IUrlGeneratorStrategy` / `CounterBasedBase62UrlGeneratorStrategy` | Allows swapping URL generation algorithms (counter-based, hash-based, random) without changing service code. |
+| **Observer** | `ISubject` / `IObserver` / `RealTimeAnalyticsTracker` | Decouples analytics from core business logic. New observers can be added without modifying the service. |
+| **Repository** | `IUrlRepository` / `InMemoryUrlRepository` | Abstracts data storage. Can swap in-memory for database without touching service logic. |
+
+---
+
+## 7. Class Diagram
+
+```
+┌─────────────────────────────┐
+│      «interface»            │
+│     IUrlGeneratorStrategy   │
+├─────────────────────────────┤
+│ + Generate(longUrl): string │
+└──────────────┬──────────────┘
+               │ implements
+┌──────────────▼──────────────────────────┐
+│ CounterBasedBase62UrlGeneratorStrategy   │
+├─────────────────────────────────────────┤
+│ - _allowedCharacters: string            │
+│ - _counter: long                        │
+├─────────────────────────────────────────┤
+│ + Generate(longUrl): string             │
+│ - EncodeBase62(id): string              │
+└─────────────────────────────────────────┘
+
+┌───────────────────────────────────────┐
+│          «interface»                  │
+│          IUrlRepository               │
+├───────────────────────────────────────┤
+│ + AddUrlEntity(entity)                │
+│ + GetEntityByAlias(shortUrl): UrlEntity? │
+│ + ShortUrlExists(alias): bool         │
+│ + UpdateEntity(entity)                │
+│ + DeleteEntity(entity)                │
+└──────────────┬────────────────────────┘
+               │ implements
+┌──────────────▼────────────────────────┐
+│      InMemoryUrlRepository            │
+├───────────────────────────────────────┤
+│ - _shortToEntityMap: Dictionary       │
+└───────────────────────────────────────┘
+
+┌────────────────────────────────────────────┐
+│           «interface»                      │
+│            ISubject                        │
+├────────────────────────────────────────────┤
+│ + Subscribe(observer)                      │
+│ + Unsubscribe(observer)                    │
+│ + Notify(eventType, entity)                │
+└──────────────┬─────────────────────────────┘
+               │ implements
+┌──────────────▼─────────────────────────────┐
+│        UrlShortenerService                 │
+├────────────────────────────────────────────┤
+│ - _repository: IUrlRepository              │
+│ - _generatorStrategy: IUrlGeneratorStrategy│
+│ - _observers: ImmutableHashSet<IObserver>  │
+├────────────────────────────────────────────┤
+│ + ShortenUrl(longUrl, customAlias?, ttl?)  │
+│ + RedirectUrl(shortUrl): string            │
+│ + Subscribe(observer)                      │
+│ + Unsubscribe(observer)                    │
+│ + Notify(eventType, entity)                │
+└────────────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│        «interface»                  │
+│         IObserver                   │
+├─────────────────────────────────────┤
+│ + Update(eventType, entity)         │
+└──────────────┬──────────────────────┘
+               │ implements
+┌──────────────▼──────────────────────┐
+│    RealTimeAnalyticsTracker         │
+├─────────────────────────────────────┤
+│ - _totalLinks: int                  │
+│ - _totalClicks: int                 │
+│ - _expirations: ConcurrentDict     │
+├─────────────────────────────────────┤
+│ + Update(eventType, entity)         │
+│ + GetAnalytics(): SystemAnalytics   │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│           UrlEntity                 │
+├─────────────────────────────────────┤
+│ + OriginalUrl: string               │
+│ + ShortUrl: string                  │
+│ + ExpirationTime: DateTimeOffset?   │
+│ + CreatedDate: DateTimeOffset       │
+│ + LastAccessed: DateTimeOffset?     │
+│ + TotalClicks: int                  │
+├─────────────────────────────────────┤
+│ + RecordVisit()                     │
+│ + IsExpired(): bool                 │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  «record» SystemAnalytics           │
+├─────────────────────────────────────┤
+│ + TotalLinks: int                   │
+│ + TotalClicks: int                  │
+│ + ActiveLinks: int                  │
+└─────────────────────────────────────┘
+
+┌─────────────────────────┐
+│  «enum» UrlEventType    │
+├─────────────────────────┤
+│ CREATED                 │
+│ VISITED                 │
+└─────────────────────────┘
+```
+
+---
+
+## 8. Code for Each Class and Interface
+
+### UrlEntity
 
 ```csharp
+namespace URLShotenerV1.Entities;
 
-public async Task<string> ShortenUrlAsync(string longUrl, string? customAlias = null, DateTimeOffset? expirationTime = null)
+public class UrlEntity
 {
-    // 1. Check if any customAlias has been provided.
-    //  -> If Yes then check if it's available.
-    //  ->                   If not available return custom error
-    //  ->                   If available then use this as short url
+    public string OriginalUrl { get; }
+    public string ShortUrl { get; }
+    public DateTimeOffset? ExpirationTime { get; }
+    public DateTimeOffset? LastAccessed { get; private set; }
+    public DateTimeOffset CreatedDate { get; }
 
-    string aliasToUse;
+    private int _totalClicks;
+    public int TotalClicks => _totalClicks;
 
-    if (!string.IsNullOrWhiteSpace(customAlias))
+    public UrlEntity(string originalUrl, string shortUrl, DateTimeOffset? expirationTime)
     {
-        if (await _repository.AliasExistsAsync(customAlias))
-            throw new AliasAlreadyTakenException(customAlias);
+        if (string.IsNullOrWhiteSpace(originalUrl))
+            throw new ArgumentException("Original URL cannot be empty.");
+        if (string.IsNullOrWhiteSpace(shortUrl))
+            throw new ArgumentException("Short URL cannot be empty.");
 
-        aliasToUse = customAlias;
-    }
-    else
-    {   // 2. Generate a unique short code.
-        //    Note we do this in a loop
-        //    because there is a small chance that the generated
-        //    url might not be unique.
-        int maxRetries = 5;
-        do
-        {
-            aliasToUse = _generatorStrategy.Generate(longUrl);
-            maxRetries--;
-            if (maxRetries == 0) throw new Exception("Failed to generate a unique alias.");
-        } while (await _repository.AliasExistsAsync(aliasToUse));
+        OriginalUrl = originalUrl;
+        ShortUrl = shortUrl;
+        ExpirationTime = expirationTime;
+        CreatedDate = DateTimeOffset.UtcNow;
+        _totalClicks = 0;
+        LastAccessed = null;
     }
 
-    // 3. Create the entity and store in repository
-    var urlEntity = new UrlEntity(originalUrl: longUrl, shortUrl: aliasToUse, expirationTime: expirationTime);
-    await _repository.AddUrlEntityAsync(urlEntity);
-
-    // CLASSIC OBSERVER: Notify all attached observers
-    NotifyObservers(UrlEventType.UrlCreated, urlEntity);
-
-    return aliasToUse;
-}
-```
-### 4.4. ResolveUrl Flow
-
-```csharp
-public async Task<string> ResolveUrlAsync(string alias)
-{
-    var entity = await _repository.GetEntityByAliasAsync(alias);
-    if (entity == null) throw new UrlNotFoundException(alias);
-    if (entity.IsExpired()) throw new UrlExpiredException(alias);
-
-    entity.RecordVisit();
-    await _repository.UpdateEntityAsync(entity);
-    
-    // CLASSIC OBSERVER: Notify all attached observers
-    NotifyObservers(UrlEventType.UrlVisited, entity);
-    
-    return entity.OriginalUrl;
-}
-```
-
----
-
-## 5. The Notification Pattern (Observer)
-
-To calculate system-wide analytics without bogging down the main database with expensive *O(N)* table scans, we use a Classic Observer Pattern. The `UrlShortenerService` triggers events when a URL is created or visited.
-
-To prevent a slow observer (like an external email service, a logging framework, or a database write) from freezing the main web application thread, we utilize a **Snapshot + Fire-and-Forget** methodology.
-
-### Fire-and-Forget with `Task.Run()`
-
-Inside the subject, we iterate over our observers and push the execution to a background thread pool. This queues the work item in the .NET `ThreadPool`, allowing the primary web request thread to complete its HTTP response immediately and redirect the user without waiting for the analytics to finish saving.
-
-```csharp
-foreach (var observer in snapshot)
-{
-    // Fire and forget! The main thread moves on instantly.
-    Task.Run(() => 
+    public void RecordVisit()
     {
-        try { observer.OnUrlEvent(urlEventType, entity); }
-        catch (Exception ex) { /* Isolate failures so they don't crash other observers */ }
-    });
+        _totalClicks++;
+        LastAccessed = DateTimeOffset.UtcNow;
+    }
+
+    public bool IsExpired()
+    {
+        return ExpirationTime.HasValue && ExpirationTime.Value < DateTimeOffset.UtcNow;
+    }
 }
 ```
 
-### Q: Since we used `Task.Run()`, do we still need the snapshot?
-
-**Yes, you still absolutely need the snapshot.**
-
-Here is the exact reason why: `Task.Run()` pushes the execution of the observer's callback to a background thread, but the `foreach` loop itself still iterates over the `_observers` list synchronously on the current thread.
-
-If you write it like this without taking a snapshot first:
+### SystemAnalytics
 
 ```csharp
-foreach (var observer in _observers) // <-- The main thread is iterating here
+namespace URLShotenerV1.Entities;
+
+public record SystemAnalytics(int TotalLinks, int TotalClicks, int ActiveLinks);
+```
+
+### UrlEventType
+
+```csharp
+public enum UrlEventType
 {
-    Task.Run(() => observer.OnUrlEvent(urlEventType, entity));
+    CREATED,
+    VISITED,
 }
 ```
 
-If another user or system process triggers `Subscribe()` or `Unsubscribe()` while that `foreach` loop is halfway through reading the list, .NET will instantly throw an `InvalidOperationException: Collection was modified; enumeration operation may not execute`.
-
-**The Snapshot Guarantee:**
-
-By taking the snapshot inside the lock first, you are iterating over a completely isolated, private copy of the list. It guarantees that no matter how many other threads are dynamically adding or removing observers in the background, your `foreach` loop will safely complete its iteration over the immutable copy without crashing.
-
----
-
-## 6. Other Architectural Notes
-
-- **Lazy Expiration vs. Active Polling:** Rather than running a costly background worker thread that continuously scans the database and deletes expired URLs (which wastes CPU cycles and creates database contention), the system evaluates expiration lazily (`IsExpired()`). The system discovers a link is expired at the exact moment a user attempts to resolve it, instantly rejecting the request and optionally triggering a cleanup.
-- **Counter-Based Base62 Generator:** The system includes a generator strategy that utilizes a thread-safe incrementing `long` counter (`Interlocked.Increment`) combined with Base62 encoding (`A-Z`, `a-z`, `0-9`). Base62 is deliberately chosen over Base64 because it avoids URL-unsafe characters like `+` and `/`. This strategy guarantees mathematically zero collisions on a single instance, bypassing the need for expensive do-while database retry loops entirely.
+### IUrlGeneratorStrategy
 
 ```csharp
+namespace URLShotenerV1.Strategies;
+
+public interface IUrlGeneratorStrategy
+{
+    string Generate(string longUrl);
+}
+```
+
+### CounterBasedBase62UrlGeneratorStrategy
+
+```csharp
+using System.Threading;
+using System.Text;
+
+namespace URLShotenerV1.Strategies;
+
 public class CounterBasedBase62UrlGeneratorStrategy : IUrlGeneratorStrategy
 {
     private const string _allowedCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private long _counter = 1;
+    private long _counter = 0;
 
     public string Generate(string longUrl)
     {
-        // Atomically increment the counter for thread safety
         long id = Interlocked.Increment(ref _counter);
         return EncodeBase62(id);
     }
 
     private string EncodeBase62(long id)
     {
-        if (id == 0) return _allowedCharacters[0].ToString();
+        if (id == 0)
+            return _allowedCharacters[0].ToString();
 
-        var shortUrl = new System.Text.StringBuilder();
+        var shortUrl = new StringBuilder();
 
         while (id > 0)
         {
@@ -239,5 +297,300 @@ public class CounterBasedBase62UrlGeneratorStrategy : IUrlGeneratorStrategy
         return shortUrl.ToString();
     }
 }
-
 ```
+
+### IUrlRepository
+
+```csharp
+using URLShotenerV1.Entities;
+
+namespace URLShotenerV1.Repository;
+
+public interface IUrlRepository
+{
+    void AddUrlEntity(UrlEntity entity);
+    bool ShortUrlExists(string alias);
+    UrlEntity? GetEntityByAlias(string shortUrl);
+    void UpdateEntity(UrlEntity urlEntity);
+    void DeleteEntity(UrlEntity urlEntity);
+}
+```
+
+### InMemoryUrlRepository
+
+```csharp
+using URLShotenerV1.Entities;
+using URLShotenerV1.Exceptions;
+
+namespace URLShotenerV1.Repository;
+
+public class InMemoryUrlRepository : IUrlRepository
+{
+    private readonly Dictionary<string, UrlEntity> _shortToEntityMap;
+
+    public InMemoryUrlRepository()
+    {
+        _shortToEntityMap = new Dictionary<string, UrlEntity>();
+    }
+
+    public void AddUrlEntity(UrlEntity entity)
+    {
+        if (_shortToEntityMap.TryAdd(entity.ShortUrl, entity) == false)
+        {
+            throw new AliasAlreadyTakenException(entity.ShortUrl);
+        }
+    }
+
+    public bool ShortUrlExists(string alias)
+    {
+        return _shortToEntityMap.ContainsKey(alias);
+    }
+
+    public UrlEntity? GetEntityByAlias(string shortUrl)
+    {
+        _shortToEntityMap.TryGetValue(shortUrl, out UrlEntity? url);
+        return url;
+    }
+
+    public void UpdateEntity(UrlEntity urlEntity)
+    {
+        _shortToEntityMap[urlEntity.ShortUrl] = urlEntity;
+    }
+
+    public void DeleteEntity(UrlEntity urlEntity)
+    {
+        _shortToEntityMap?.Remove(urlEntity.ShortUrl);
+    }
+}
+```
+
+### IObserver
+
+```csharp
+using URLShotenerV1.Entities;
+
+namespace URLShotenerV1.Observers;
+
+public interface IObserver
+{
+    void Update(UrlEventType eventType, UrlEntity entity);
+}
+```
+
+### ISubject
+
+```csharp
+using URLShotenerV1.Entities;
+
+namespace URLShotenerV1.Observers;
+
+public interface ISubject
+{
+    void Subscribe(IObserver observer);
+    void Unsubscribe(IObserver observer);
+    void Notify(UrlEventType eventType, UrlEntity entity);
+}
+```
+
+### RealTimeAnalyticsTracker
+
+```csharp
+using System.Collections.Concurrent;
+using URLShotenerV1.Entities;
+
+namespace URLShotenerV1.Observers;
+
+public class RealTimeAnalyticsTracker : IObserver
+{
+    private int _totalLinks;
+    private int _totalClicks;
+    private readonly ConcurrentDictionary<string, DateTimeOffset?> _expirations;
+
+    public RealTimeAnalyticsTracker()
+    {
+        _expirations = new();
+    }
+
+    public void Update(UrlEventType eventType, UrlEntity entity)
+    {
+        switch (eventType)
+        {
+            case UrlEventType.CREATED:
+                Interlocked.Increment(ref _totalLinks);
+                _expirations.TryAdd(entity.ShortUrl, entity.ExpirationTime);
+                break;
+            case UrlEventType.VISITED:
+                Interlocked.Increment(ref _totalClicks);
+                break;
+        }
+    }
+
+    public SystemAnalytics GetAnalytics()
+    {
+        int active = 0;
+        var now = DateTimeOffset.UtcNow;
+
+        foreach (var exp in _expirations.Values)
+        {
+            if (!exp.HasValue || exp.Value > now)
+            {
+                active++;
+            }
+        }
+
+        return new SystemAnalytics(_totalLinks, _totalClicks, active);
+    }
+}
+```
+
+### UrlShortenerService
+
+```csharp
+using System.Collections.Immutable;
+using URLShotenerV1.Entities;
+using URLShotenerV1.Exceptions;
+using URLShotenerV1.Observers;
+using URLShotenerV1.Repository;
+using URLShotenerV1.Strategies;
+
+namespace URLShotenerV1.Services;
+
+public class UrlShortenerService : ISubject
+{
+    private readonly IUrlRepository _repository;
+    private readonly IUrlGeneratorStrategy _generatorStrategy;
+    private ImmutableHashSet<IObserver> _observers = ImmutableHashSet<IObserver>.Empty;
+
+    public UrlShortenerService(IUrlRepository repository, IUrlGeneratorStrategy generatorStrategy)
+    {
+        _repository = repository;
+        _generatorStrategy = generatorStrategy;
+    }
+
+    public string ShortenUrl(string longUrl, string? customAlias, DateTimeOffset? expirationTime = null)
+    {
+        string aliasToUse;
+        if (!string.IsNullOrEmpty(customAlias))
+        {
+            if (_repository.ShortUrlExists(customAlias))
+                throw new AliasAlreadyTakenException(customAlias);
+            aliasToUse = customAlias;
+        }
+        else
+        {
+            int maxRetries = 5;
+            do
+            {
+                aliasToUse = _generatorStrategy.Generate(longUrl);
+                maxRetries--;
+                if (maxRetries == 0)
+                    throw new Exception("Failed to generate a unique alias.");
+            } while (_repository.ShortUrlExists(aliasToUse) == true);
+        }
+
+        var urlEntry = new UrlEntity(originalUrl: longUrl, shortUrl: aliasToUse, expirationTime: expirationTime);
+        _repository.AddUrlEntity(urlEntry);
+        Notify(UrlEventType.CREATED, urlEntry);
+
+        return aliasToUse;
+    }
+
+    public string RedirectUrl(string shortUrl)
+    {
+        if (string.IsNullOrEmpty(shortUrl))
+            throw new InvalidShortUrlException(shortUrl);
+
+        var entity = _repository.GetEntityByAlias(shortUrl);
+        if (entity == null)
+            throw new UrlNotFoundException(shortUrl);
+        if (entity.IsExpired())
+        {
+            _repository.DeleteEntity(entity);
+            throw new UrlExpiredException(shortUrl);
+        }
+
+        entity.RecordVisit();
+        _repository.UpdateEntity(entity);
+        Notify(UrlEventType.VISITED, entity);
+
+        return entity.OriginalUrl;
+    }
+
+    public void Subscribe(IObserver observer)
+    {
+        ImmutableInterlocked.Update(ref _observers, list => list.Add(observer));
+    }
+
+    public void Unsubscribe(IObserver observer)
+    {
+        ImmutableInterlocked.Update(ref _observers, list => list.Remove(observer));
+    }
+
+    public void Notify(UrlEventType eventType, UrlEntity entity)
+    {
+        foreach (var observer in _observers)
+        {
+            observer.Update(eventType, entity);
+        }
+    }
+}
+```
+
+### Exceptions
+
+```csharp
+// AliasAlreadyTakenException.cs
+namespace URLShotenerV1.Exceptions;
+
+public class AliasAlreadyTakenException : Exception
+{
+    public AliasAlreadyTakenException(string alias)
+        : base($"The custom alias : {alias} is already in use.") { }
+}
+
+// InvalidShortUrlException.cs
+namespace URLShotenerV1.Exceptions;
+
+public class InvalidShortUrlException : Exception
+{
+    public InvalidShortUrlException(string shortUrl)
+        : base($"{shortUrl} is invalid") { }
+}
+
+// UrlExpiredException.cs
+namespace URLShotenerV1.Exceptions;
+
+public class UrlExpiredException : Exception
+{
+    public UrlExpiredException(string shortUrl)
+        : base($"{shortUrl} has expired.") { }
+}
+
+// UrlNotFoundException.cs
+namespace URLShotenerV1.Exceptions;
+
+public class UrlNotFoundException : Exception
+{
+    public UrlNotFoundException(string shortUrl)
+        : base($"{shortUrl} not found in database") { }
+}
+```
+
+---
+
+## 9. Evolution to V2
+
+V2 evolves V1 by making the system **async-ready** and **fully thread-safe**:
+
+| Aspect | V1 | V2 |
+|--------|----|----|
+| **Service methods** | Synchronous (`string ShortenUrl(...)`) | Async (`Task<string> ShortenUrlAsync(...)`) |
+| **Repository interface** | Sync (`void AddUrlEntity(...)`) | Async (`Task AddUrlEntityAsync(...)`) |
+| **Repository storage** | `Dictionary<string, UrlEntity>` | `ConcurrentDictionary<string, UrlEntity>` |
+| **RecordVisit()** | `_totalClicks++` (not thread-safe) | `Interlocked.Increment(ref _totalClicks)` |
+
+### Why these changes matter:
+
+1. **Async** — In production, repository calls hit a database or network. Async prevents thread pool starvation under load.
+2. **ConcurrentDictionary** — Multiple threads can safely read/write URL mappings simultaneously without locks.
+3. **Interlocked.Increment** — Ensures click counts are accurate even under concurrent access (V1's `++` can lose increments).

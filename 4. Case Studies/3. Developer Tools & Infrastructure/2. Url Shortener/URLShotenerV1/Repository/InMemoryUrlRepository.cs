@@ -1,7 +1,7 @@
-﻿using _1.URLShotenerV1.Entities;
-using _1.URLShotenerV1.Exceptions;
+﻿using URLShotenerV1.Entities;
+using URLShotenerV1.Exceptions;
 
-namespace _1.URLShotenerV1.Repository;
+namespace URLShotenerV1.Repository;
 
 public class InMemoryUrlRepository : IUrlRepository
 {
@@ -21,7 +21,7 @@ public class InMemoryUrlRepository : IUrlRepository
         }
     }
 
-    public bool AliasExists(string alias)
+    public bool ShortUrlExists(string alias)
     {
         return _shortToEntityMap.ContainsKey(alias);
     }
@@ -35,5 +35,10 @@ public class InMemoryUrlRepository : IUrlRepository
     public void UpdateEntity(UrlEntity urlEntity)
     {
         _shortToEntityMap[urlEntity.ShortUrl] = urlEntity;
+    }
+
+    public void DeleteEntity(UrlEntity urlEntity) 
+    { 
+        _shortToEntityMap?.Remove(urlEntity.ShortUrl);
     }
 }

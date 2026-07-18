@@ -1,8 +1,7 @@
 ﻿using System.Collections.Concurrent;
-using URLShotenerV2.Entities;
-using URLShotenerV2.Enums;
+using URLShotenerV1.Entities;
 
-namespace URLShotenerV2.Observers;
+namespace URLShotenerV1.Observers;
 
 public class RealTimeAnalyticsTracker : IObserver
 {
@@ -49,4 +48,3 @@ public class RealTimeAnalyticsTracker : IObserver
         return new SystemAnalytics(_totalLinks, _totalClicks, active);
     }
 }
-

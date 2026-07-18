@@ -22,7 +22,7 @@ public class InMemoryUrlRepository : IUrlRepository
         return Task.CompletedTask;
     }
 
-    public Task<bool> AliasExistsAsync(string alias)
+    public Task<bool> ShortUrlExistsAsync(string alias)
     {
         return Task.FromResult(_shortToEntityMap.ContainsKey(alias));
     }
@@ -35,6 +35,12 @@ public class InMemoryUrlRepository : IUrlRepository
     public Task UpdateEntityAsync(UrlEntity entity)
     {
         _shortToEntityMap[entity.ShortUrl] = entity;
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteEntityAsync(UrlEntity urlEntity)
+    {
+        _shortToEntityMap.TryRemove(urlEntity.ShortUrl, out _);
         return Task.CompletedTask;
     }
 }

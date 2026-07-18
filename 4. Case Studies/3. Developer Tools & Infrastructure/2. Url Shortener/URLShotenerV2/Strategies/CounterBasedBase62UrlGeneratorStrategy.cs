@@ -1,9 +1,9 @@
-﻿namespace URLShotenerV2.Strategies;
+namespace URLShotenerV2.Strategies;
 
 public class CounterBasedBase62UrlGeneratorStrategy : IUrlGeneratorStrategy
 {
     private const string _allowedCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private long _counter = 1;
+    private long _counter = 0;
 
     public string Generate(string longUrl)
     {

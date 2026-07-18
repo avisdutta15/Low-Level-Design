@@ -1,4 +1,4 @@
-﻿namespace URLShotenerV2.Entities;
+﻿namespace URLShotenerV1.Entities;
 
 public class UrlEntity
 {
@@ -12,13 +12,12 @@ public class UrlEntity
     private int _totalClicks;
     public int TotalClicks => _totalClicks;
 
-
-    public UrlEntity(string originalUrl, string shortUrl, DateTimeOffset? expirationTime = null)
+    public UrlEntity(string originalUrl, string shortUrl, DateTimeOffset? expirationTime)
     {
         if (string.IsNullOrWhiteSpace(originalUrl)) 
             throw new ArgumentException("Original URL cannot be empty.");
         if (string.IsNullOrWhiteSpace(shortUrl)) 
-            throw new ArgumentException("Alias cannot be empty.");
+            throw new ArgumentException("Short URL cannot be empty.");
 
         OriginalUrl = originalUrl;
         ShortUrl = shortUrl;
@@ -30,11 +29,11 @@ public class UrlEntity
 
     public void RecordVisit()
     {
-        Interlocked.Increment(ref _totalClicks);
+        _totalClicks++;
         LastAccessed = DateTimeOffset.UtcNow;
     }
 
-    public bool IsExpired()
+    public bool IsExpired() 
     {
         return ExpirationTime.HasValue && ExpirationTime.Value < DateTimeOffset.UtcNow;
     }

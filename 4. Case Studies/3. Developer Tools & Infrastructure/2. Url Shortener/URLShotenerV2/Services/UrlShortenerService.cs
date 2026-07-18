@@ -1,4 +1,6 @@
-﻿using URLShotenerV2.Entities;
+using System.Collections.Immutable;
+using URLShotenerV2.Entities;
+using URLShotenerV2.Enums;
 using URLShotenerV2.Exceptions;
 using URLShotenerV2.Observers;
 using URLShotenerV2.Repository;
@@ -6,19 +8,19 @@ using URLShotenerV2.Strategies;
 
 namespace URLShotenerV2.Services;
 
-public class UrlShortenerService : IUrlSubject
+public class UrlShortenerService : ISubject
 {
     private readonly IUrlRepository _repository;
     private readonly IUrlGeneratorStrategy _generatorStrategy;
-    private readonly List<IUrlObserver> _observers = new();
-    private readonly object _lock = new();
-
+    private ImmutableHashSet<IObserver> _observers = ImmutableHashSet<IObserver>.Empty;
 
     public UrlShortenerService(IUrlRepository repository, IUrlGeneratorStrategy generator)
     {
         _repository = repository;
         _generatorStrategy = generator;
     }
+    
+    // Core Methods
 
     public async Task<string> ShortenUrlAsync(string longUrl, string? customAlias = null, DateTimeOffset? expirationTime = null)
     {
@@ -31,7 +33,7 @@ public class UrlShortenerService : IUrlSubject
 
         if (!string.IsNullOrWhiteSpace(customAlias))
         {
-            if (await _repository.AliasExistsAsync(customAlias))
+            if (await _repository.ShortUrlExistsAsync(customAlias))
                 throw new AliasAlreadyTakenException(customAlias);
 
             aliasToUse = customAlias;
@@ -47,87 +49,62 @@ public class UrlShortenerService : IUrlSubject
                 aliasToUse = _generatorStrategy.Generate(longUrl);
                 maxRetries--;
                 if (maxRetries == 0) throw new Exception("Failed to generate a unique alias.");
-            } while (await _repository.AliasExistsAsync(aliasToUse));
+            } while (await _repository.ShortUrlExistsAsync(aliasToUse));
         }
 
         // 3. Create the entity and store in repository
-        var urlEntity = new UrlEntity(originalUrl: longUrl, shortUrl: aliasToUse, expirationTime: expirationTime);
-        await _repository.AddUrlEntityAsync(urlEntity);
+        var urlEntry = new UrlEntity(originalUrl: longUrl, shortUrl: aliasToUse, expirationTime: expirationTime);
+        await _repository.AddUrlEntityAsync(urlEntry);
+        Notify(UrlEventType.CREATED, urlEntry);
 
-        // CLASSIC OBSERVER: Notify all attached observers
-        NotifyObservers(UrlEventType.UrlCreated, urlEntity);
-
+        // 4. Return the aliasToUse
         return aliasToUse;
     }
 
-    public async Task<string> ResolveUrlAsync(string alias)
+    public async Task<string> ResolveUrlAsync(string shortUrl)
     {
-        var entity = await _repository.GetEntityByAliasAsync(alias);
+        // 1. Validate the short Url
+        if (string.IsNullOrEmpty(shortUrl))
+            throw new InvalidShortUrlException(shortUrl);
 
-        if (entity == null) throw new UrlNotFoundException(alias);
-        if (entity.IsExpired()) throw new UrlExpiredException(alias);
+        // 2. Check if the shortUrl exists or not
+        // 2.1 Check if the shortUrl has expired or not
+        var entity = await _repository.GetEntityByAliasAsync(shortUrl);
 
+        if (entity == null) 
+            throw new UrlNotFoundException(shortUrl);
+        if (entity.IsExpired())
+        {
+            await _repository.DeleteEntityAsync(entity);
+            throw new UrlExpiredException(shortUrl);
+        }
+
+        // 3. Record the visit
         entity.RecordVisit();
         await _repository.UpdateEntityAsync(entity);
+        Notify(UrlEventType.VISITED, entity);
 
-        // CLASSIC OBSERVER: Notify all attached observers
-        NotifyObservers(UrlEventType.UrlVisited, entity);
-
+        // 4. Return the long url
         return entity.OriginalUrl;
     }
 
-    public void Attach(IUrlObserver observer)
+    // Subscription Methods
+
+    public void Subscribe(IObserver observer)
     {
-        lock (_observers)
-        {
-            if (!_observers.Contains(observer))
-                _observers.Add(observer);
-        }
+        ImmutableInterlocked.Update(ref _observers, list => list.Add(observer));
     }
 
-    public void Detach(IUrlObserver observer)
+    public void Unsubscribe(IObserver observer)
     {
-        lock (_observers)
-        {
-            _observers.Remove(observer);
-        }
+        ImmutableInterlocked.Update(ref _observers, list => list.Remove(observer));
     }
 
-
-    //  Notify using snapshot of current observers to avoid concurrency issues.
-    //  If one of the observers takes 2 seconds to process the event, your entire
-    //  UrlShortenerService freezes for 2 seconds. No other thread can Attach,
-    //  Detach, or Notify during that time.
-
-    //  Notify using snapshot of current observers to avoid concurrency issues.
-    //  Background threads are used to prevent the UrlShortenerService from freezing.
-    public void NotifyObservers(UrlEventType urlEventType, UrlEntity entity)
+    public void Notify(UrlEventType eventType, UrlEntity entity)
     {
-        // 1. Snapshot to avoid holding lock during callbacks
-        List<IUrlObserver> snapshot;
-        lock (_lock)
+        foreach (var observer in _observers)
         {
-            snapshot = new List<IUrlObserver>(_observers);
-        }
-
-        // 2. Iterate over the snapshot and dispatch each notification to a ThreadPool thread
-        foreach (var observer in snapshot)
-        {
-            // Fire and forget! The main thread moves on instantly.
-            Task.Run(() =>
-            {
-                try
-                {
-                    observer.OnUrlEvent(urlEventType, entity);
-                }
-                catch (Exception ex)
-                {
-                    // CRITICAL: Always catch exceptions in fire-and-forget tasks!
-                    // Otherwise, a failing observer goes unnoticed, but wrapping it
-                    // ensures it doesn't crash the application or affect other observers.
-                    Console.WriteLine($"[Warning] Observer {observer.GetType().Name} failed: {ex.Message}");
-                }
-            });
+            observer.Update(eventType, entity);
         }
     }
 }

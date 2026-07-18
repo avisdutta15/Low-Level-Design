@@ -1,4 +1,4 @@
-﻿namespace _1.URLShotenerV1.Exceptions;
+﻿namespace URLShotenerV2.Exceptions;
 
 public class InvalidShortUrlException : Exception
 {

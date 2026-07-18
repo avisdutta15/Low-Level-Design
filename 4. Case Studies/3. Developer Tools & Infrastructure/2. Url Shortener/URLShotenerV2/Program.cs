@@ -19,7 +19,7 @@ public class Program
         // 3. Setup the Observer (Analytics Tracker)
         // It automatically attaches itself to the service's events.
         RealTimeAnalyticsTracker analytics = new RealTimeAnalyticsTracker();
-        service.Attach(analytics);
+        service.Subscribe(analytics);
 
         Console.WriteLine("--- Shortening URLs ---");
 

@@ -1,11 +1,12 @@
 ﻿using System.Threading;
+using System.Text;
 
-namespace _1.URLShotenerV1.Strategies;
+namespace URLShotenerV1.Strategies;
 
 public class CounterBasedBase62UrlGeneratorStrategy : IUrlGeneratorStrategy
 {
     private const string _allowedCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private long _counter = 1;
+    private long _counter = 0;
 
     public string Generate(string longUrl)
     {
@@ -16,9 +17,10 @@ public class CounterBasedBase62UrlGeneratorStrategy : IUrlGeneratorStrategy
 
     private string EncodeBase62(long id)
     {
-        if (id == 0) return _allowedCharacters[0].ToString();
+        if (id == 0) 
+            return _allowedCharacters[0].ToString();
 
-        var shortUrl = new System.Text.StringBuilder();
+        var shortUrl = new StringBuilder();
 
         while (id > 0)
         {

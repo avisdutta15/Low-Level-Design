@@ -1,4 +1,4 @@
-﻿namespace _1.URLShotenerV1.Exceptions;
+﻿namespace URLShotenerV1.Exceptions;
 
 public class UrlNotFoundException : Exception
 {

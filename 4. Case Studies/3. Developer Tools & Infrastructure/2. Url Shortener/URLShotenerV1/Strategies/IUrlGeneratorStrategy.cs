@@ -1,4 +1,4 @@
-﻿namespace _1.URLShotenerV1.Strategies;
+﻿namespace URLShotenerV1.Strategies;
 
 public interface IUrlGeneratorStrategy
 {

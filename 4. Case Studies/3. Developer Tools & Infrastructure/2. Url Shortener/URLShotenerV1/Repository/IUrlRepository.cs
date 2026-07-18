@@ -1,11 +1,13 @@
-﻿using _1.URLShotenerV1.Entities;
+﻿using URLShotenerV1.Entities;
 
-namespace _1.URLShotenerV1.Repository;
+namespace URLShotenerV1.Repository;
 
 public interface IUrlRepository
 {
     void AddUrlEntity(UrlEntity entity);
-    bool AliasExists(string alias);
+    bool ShortUrlExists(string alias);
     UrlEntity? GetEntityByAlias(string shortUrl);
     void UpdateEntity(UrlEntity urlEntity);
+
+    void DeleteEntity(UrlEntity urlEntity);
 }
