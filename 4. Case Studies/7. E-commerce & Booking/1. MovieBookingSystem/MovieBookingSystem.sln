@@ -1,0 +1,45 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "V1", "V1", "{B0690952-12DA-416C-8EA1-F8DC14DF54EF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MovieBookingSystemV1", "V1\MovieBookingSystemV1\MovieBookingSystemV1.csproj", "{BB98EAA8-E52F-4993-9FED-8B731DF641CF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "V2", "V2", "{3B46DECC-4B62-475B-8BE0-132C3BAB635E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MovieBookingSystemV2", "V2\MovieBookingSystemV2\MovieBookingSystemV2.csproj", "{99988409-6F0F-49BE-BE25-3D17500DC267}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "V3", "V3", "{B7FE9A15-0D0D-4A3D-819F-A216480E405D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MovieBookingSystemV3", "V3\MovieBookingSystemV3\MovieBookingSystemV3.csproj", "{BDAB2A19-1896-4B6E-A5EC-80696B76D209}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BB98EAA8-E52F-4993-9FED-8B731DF641CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB98EAA8-E52F-4993-9FED-8B731DF641CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BB98EAA8-E52F-4993-9FED-8B731DF641CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BB98EAA8-E52F-4993-9FED-8B731DF641CF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{99988409-6F0F-49BE-BE25-3D17500DC267}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{99988409-6F0F-49BE-BE25-3D17500DC267}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{99988409-6F0F-49BE-BE25-3D17500DC267}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{99988409-6F0F-49BE-BE25-3D17500DC267}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BDAB2A19-1896-4B6E-A5EC-80696B76D209}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BDAB2A19-1896-4B6E-A5EC-80696B76D209}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BDAB2A19-1896-4B6E-A5EC-80696B76D209}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BDAB2A19-1896-4B6E-A5EC-80696B76D209}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{BB98EAA8-E52F-4993-9FED-8B731DF641CF} = {B0690952-12DA-416C-8EA1-F8DC14DF54EF}
+		{99988409-6F0F-49BE-BE25-3D17500DC267} = {3B46DECC-4B62-475B-8BE0-132C3BAB635E}
+		{BDAB2A19-1896-4B6E-A5EC-80696B76D209} = {B7FE9A15-0D0D-4A3D-819F-A216480E405D}
+	EndGlobalSection
+EndGlobal
