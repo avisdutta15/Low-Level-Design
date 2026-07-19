@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "V1", "V1", "{7DB4A1D5-5772-4C66-8A3E-A0803E7FCC26}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StackOverflowV1", "V1\StackOverflowV1\StackOverflowV1.csproj", "{3D7F9922-BD9D-4EE8-847A-75C0331E8E5E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "V2", "V2", "{8BCFEAF8-904C-4E72-BB3F-7CBE97A8B6B6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StackOverflowV2", "V2\StackOverflowV2\StackOverflowV2.csproj", "{DD2A7190-30BB-420B-B2E0-B955F8C4137F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3D7F9922-BD9D-4EE8-847A-75C0331E8E5E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3D7F9922-BD9D-4EE8-847A-75C0331E8E5E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3D7F9922-BD9D-4EE8-847A-75C0331E8E5E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3D7F9922-BD9D-4EE8-847A-75C0331E8E5E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DD2A7190-30BB-420B-B2E0-B955F8C4137F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DD2A7190-30BB-420B-B2E0-B955F8C4137F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DD2A7190-30BB-420B-B2E0-B955F8C4137F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DD2A7190-30BB-420B-B2E0-B955F8C4137F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{3D7F9922-BD9D-4EE8-847A-75C0331E8E5E} = {7DB4A1D5-5772-4C66-8A3E-A0803E7FCC26}
+		{DD2A7190-30BB-420B-B2E0-B955F8C4137F} = {8BCFEAF8-904C-4E72-BB3F-7CBE97A8B6B6}
+	EndGlobalSection
+EndGlobal
