@@ -90,86 +90,8 @@ Auto-Close Flow:
 
 V1 implements the full auction lifecycle with per-auction locks for bid concurrency and a background scheduler for auto-closing auctions.
 
-### V1 Class Diagram (PlantUML)
-
-```plantuml
-@startuml V1_ClassDiagram
-title V1 — Online Auction System
-
-enum AuctionStatus {
-  Active
-  Closed
-}
-
-class User {
-  + Id : string
-  + Name : string
-}
-
-class Bid {
-  + Id : string
-  + BidderId : string
-  + Amount : double
-  + Timestamp : DateTime
-}
-
-class AuctionItem {
-  + Id : string
-  + Title : string
-  + Description : string
-  + StartingPrice : double
-  + EndTime : DateTime
-  + SellerId : string
-  - _lock : object
-  - _bids : List<Bid>
-  - _status : AuctionStatus
-  + GetCurrentPrice() : double
-  + GetHighestBid() : Bid
-  + GetBidHistory() : List<Bid>
-  + PlaceBid(bid) : (bool, string, Bid)
-  + Close() : Bid
-}
-
-interface IAuctionObserver {
-  + OnOutbid(item, outbidUserId, newHighest) : void
-  + OnAuctionEnded(item, winningBid) : void
-}
-
-class ConsoleAuctionObserver
-
-class AuctionScheduler {
-  - _timer : Timer
-  - _auctions : ConcurrentDictionary
-  - _observers : List<IAuctionObserver>
-  + Dispose() : void
-}
-
-class AuctionService {
-  - _users : ConcurrentDictionary
-  - _auctions : ConcurrentDictionary
-  - _observers : List<IAuctionObserver>
-  + RegisterUser(id, name) : User
-  + CreateAuction(...) : AuctionItem
-  + PlaceBid(auctionId, bidderId, amount) : bool
-  + CloseAuction(auctionId) : Bid
-  + GetWinner(auctionId) : Bid
-  + GetBidHistory(auctionId) : List<Bid>
-}
-
-IAuctionObserver <|.. ConsoleAuctionObserver
-AuctionService --> AuctionItem : manages
-AuctionService --> AuctionScheduler : owns
-AuctionService --> IAuctionObserver : notifies
-AuctionItem --> Bid : contains
-
-note right of AuctionItem
-  Per-auction lock:
-  Bids on different auctions
-  proceed in parallel.
-end note
-
-@enduml
-```
+### V1 Class Diagram 
+![alt text](v1-cd.png)
 
 ### V1 Code Snippets
 
@@ -330,60 +252,8 @@ V2 fixes all thread-safety gaps while keeping the same per-auction lock for bids
 
 ## V2 — Fully Thread-Safe
 
-### V2 Class Diagram (PlantUML)
-
-```plantuml
-@startuml V2_ClassDiagram
-title V2 — Thread-Safe Online Auction System
-
-class AuctionItem {
-  - _lock : object
-  - _bids : List<Bid>
-  - _status : AuctionStatus
-  + PlaceBid(bid) : (bool, string, Bid)
-  + Close() : (Bid, bool)
-  + GetHighestBid() : Bid
-}
-
-class AuctionScheduler {
-  - _timer : Timer
-  - _auctions : ConcurrentDictionary
-  - _service : AuctionService
-  + Dispose() : void
-}
-
-class AuctionService {
-  - _observers : ImmutableList<IAuctionObserver>
-  + AddObserver(obs) : void
-  + OnAuctionExpired(item, winner) : void
-  + PlaceBid(auctionId, bidderId, amount) : bool
-  + CloseAuction(auctionId) : Bid
-}
-
-AuctionScheduler --> AuctionService : calls OnAuctionExpired
-AuctionService --> AuctionItem : PlaceBid / Close
-
-note right of AuctionItem
-  Close() returns (winner, alreadyClosed).
-  If alreadyClosed == true:
-    caller does NOT notify.
-  Prevents duplicate events.
-end note
-
-note right of AuctionService
-  _observers is ImmutableList.
-  AddObserver uses ImmutableInterlocked.
-  Iteration uses snapshot — safe.
-end note
-
-note right of AuctionScheduler
-  Holds reference to AuctionService.
-  Calls service.OnAuctionExpired() directly.
-  No delegates, no Func.
-end note
-
-@enduml
-```
+### V2 Class Diagram 
+![alt text](v2-cd.png)
 
 ### V2 Key Changes
 
