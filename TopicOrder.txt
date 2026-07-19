@@ -50,10 +50,10 @@ Design Chat Application
 7. E-Commerce & Booking
 Design Movie Booking System
 Design Car Rental System
-Design Online Food Delivery Service
+Design Online Auction System
 Design Airline Management System 
 Design Meeting Scheduler
-Design Online Auction System
+Design Online Food Delivery Service
 Design Ride Hailing Service
 Design Amazon Locker
 Design Shopping Cart
