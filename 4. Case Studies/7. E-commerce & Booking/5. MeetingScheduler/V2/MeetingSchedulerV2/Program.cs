@@ -28,8 +28,58 @@ public class MeetingRoom
     public string Id { get; }
     public string Name { get; }
     public int Capacity { get; }
-    public MeetingRoom(string id, string name, int capacity) { Id = id; Name = name; Capacity = capacity; }
-    public override string ToString() => $"{Name} (cap:{Capacity})";
+    public HashSet<string> Amenities { get; }
+
+    public MeetingRoom(string id, string name, int capacity, params string[] amenities)
+    {
+        Id = id; Name = name; Capacity = capacity;
+        Amenities = new HashSet<string>(amenities, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public bool HasAmenity(string amenity) => Amenities.Contains(amenity);
+    public override string ToString() => $"{Name} (cap:{Capacity}, [{string.Join(", ", Amenities)}])";
+}
+
+// Room filter strategy (same as V1)
+public interface IRoomFilter
+{
+    List<MeetingRoom> Filter(List<MeetingRoom> rooms);
+}
+
+public class AmenityFilter : IRoomFilter
+{
+    private readonly string _amenity;
+    public AmenityFilter(string amenity) => _amenity = amenity;
+    public List<MeetingRoom> Filter(List<MeetingRoom> rooms) =>
+        rooms.Where(r => r.HasAmenity(_amenity)).ToList();
+}
+
+public class MultiAmenityFilter : IRoomFilter
+{
+    private readonly List<string> _required;
+    public MultiAmenityFilter(List<string> amenities) => _required = amenities;
+    public List<MeetingRoom> Filter(List<MeetingRoom> rooms) =>
+        rooms.Where(r => _required.All(a => r.HasAmenity(a))).ToList();
+}
+
+public class CapacityFilter : IRoomFilter
+{
+    private readonly int _min;
+    public CapacityFilter(int min) => _min = min;
+    public List<MeetingRoom> Filter(List<MeetingRoom> rooms) =>
+        rooms.Where(r => r.Capacity >= _min).ToList();
+}
+
+public class CompositeFilter : IRoomFilter
+{
+    private readonly List<IRoomFilter> _filters = new();
+    public CompositeFilter Add(IRoomFilter f) { _filters.Add(f); return this; }
+    public List<MeetingRoom> Filter(List<MeetingRoom> rooms)
+    {
+        var result = rooms;
+        foreach (var f in _filters) result = f.Filter(result);
+        return result;
+    }
 }
 
 public class HistoryRecord
@@ -272,6 +322,48 @@ public class RoomManager
     {
         return _rooms.Values.Where(r => CheckAvailability(r.Id, start, end)).ToList();
     }
+
+    // Filter: available rooms matching a filter strategy
+    public List<MeetingRoom> FilterRooms(DateTime start, DateTime end, IRoomFilter? filter = null)
+    {
+        var available = GetAvailableRooms(start, end);
+        if (filter != null) available = filter.Filter(available);
+        return available;
+    }
+
+    // V2: Release a slot under per-room lock (used by cancel/modify)
+    public void ReleaseSlot(string roomId, DateTime start, DateTime end)
+    {
+        if (!_schedules.TryGetValue(roomId, out var entry)) return;
+        lock (entry.lockObj)
+        {
+            entry.schedule.RemoveAll(s => s.start == start && s.end == end);
+        }
+    }
+
+    // V2: Atomic release old + reserve new (for modify — no TOCTOU gap between release and reserve)
+    public bool ReleaseAndReserve(string roomId, DateTime oldStart, DateTime oldEnd, DateTime newStart, DateTime newEnd)
+    {
+        if (!_schedules.TryGetValue(roomId, out var entry)) return false;
+        lock (entry.lockObj)
+        {
+            // Release old
+            entry.schedule.RemoveAll(s => s.start == oldStart && s.end == oldEnd);
+
+            // Check new slot
+            bool hasConflict = entry.schedule.Any(s => newStart < s.end && newEnd > s.start);
+            if (hasConflict)
+            {
+                // Rollback: re-add old slot
+                entry.schedule.Add((oldStart, oldEnd));
+                return false;
+            }
+
+            // Reserve new
+            entry.schedule.Add((newStart, newEnd));
+            return true;
+        }
+    }
 }
 
 // ─────────────────────────────────────────────
@@ -324,7 +416,96 @@ public class BookingManager
         return booking;
     }
 
+    // Book by amenities: filter rooms, auto-pick first match, book atomically
+    public Booking? BookRoomByAmenities(DateTime start, DateTime end, List<User> participants,
+        List<string> requiredAmenities, bool withTV = false, bool withWhiteboard = false, bool withAC = false)
+    {
+        var filter = new MultiAmenityFilter(requiredAmenities);
+        var matching = _roomManager.FilterRooms(start, end, filter);
+
+        if (matching.Count == 0)
+        {
+            Console.WriteLine($"    [BookingManager] No room with [{string.Join(", ", requiredAmenities)}] available for {start:HH:mm}-{end:HH:mm}");
+            return null;
+        }
+
+        // Try each matching room until one successfully reserves (handles race with other threads)
+        foreach (var room in matching)
+        {
+            if (_roomManager.CheckAndReserve(room.Id, start, end))
+            {
+                Console.WriteLine($"    [BookingManager] Auto-selected: {room}");
+
+                var builder = new BookingBuilder(room, start, end, participants);
+                if (withTV) builder.WithTV();
+                if (withWhiteboard) builder.WithWhiteboard();
+                if (withAC) builder.WithAC();
+
+                var booking = builder.Build();
+                ImmutableInterlocked.Update(ref _bookings, list => list.Add(booking));
+                Console.WriteLine($"    [BookingManager] Booked: {booking}");
+
+                var observers = _observers;
+                foreach (var obs in observers) obs.OnBookingCreated(booking);
+                return booking;
+            }
+        }
+
+        Console.WriteLine($"    [BookingManager] All matching rooms taken for {start:HH:mm}-{end:HH:mm}");
+        return null;
+    }
+
     public ImmutableList<Booking> GetAllBookings() => _bookings;
+
+    // V2: Cancel — release slot under per-room lock, remove from bookings atomically
+    public bool CancelBooking(string bookingId)
+    {
+        var booking = _bookings.FirstOrDefault(b => b.Id == bookingId);
+        if (booking == null)
+        {
+            Console.WriteLine($"    [BookingManager] Booking {bookingId} not found");
+            return false;
+        }
+
+        _roomManager.ReleaseSlot(booking.Room.Id, booking.StartTime, booking.EndTime);
+        ImmutableInterlocked.Update(ref _bookings, list => list.Remove(booking));
+
+        Console.WriteLine($"    [BookingManager] Cancelled: {booking}");
+
+        var observers = _observers;
+        foreach (var obs in observers) obs.OnBookingCreated(booking);
+        return true;
+    }
+
+    // V2: Modify — atomic release-old + reserve-new under ONE per-room lock (no TOCTOU)
+    public Booking? ModifyBooking(string bookingId, BookingBuilder newBuilder, DateTime newStart, DateTime newEnd)
+    {
+        var existing = _bookings.FirstOrDefault(b => b.Id == bookingId);
+        if (existing == null)
+        {
+            Console.WriteLine($"    [BookingManager] Booking {bookingId} not found");
+            return null;
+        }
+
+        string roomId = existing.Room.Id;
+
+        // Atomic: release old slot + check + reserve new slot in ONE lock
+        if (!_roomManager.ReleaseAndReserve(roomId, existing.StartTime, existing.EndTime, newStart, newEnd))
+        {
+            Console.WriteLine($"    [BookingManager] Cannot modify — new time not available. Original preserved.");
+            return null;
+        }
+
+        // Replace booking in list
+        var newBooking = newBuilder.Build();
+        ImmutableInterlocked.Update(ref _bookings, list => list.Remove(existing).Add(newBooking));
+
+        Console.WriteLine($"    [BookingManager] Modified: {existing.Id} → {newBooking}");
+
+        var observers = _observers;
+        foreach (var obs in observers) obs.OnBookingCreated(newBooking);
+        return newBooking;
+    }
 }
 
 // ─────────────────────────────────────────────
@@ -339,8 +520,8 @@ public class Program
         bookingManager.AddObserver(NotificationService.GetInstance(new EmailNotification()));
         bookingManager.AddObserver(HistoryService.GetInstance());
 
-        var room1 = new MeetingRoom("r1", "Conference A", 10);
-        var room2 = new MeetingRoom("r2", "Board Room", 20);
+        var room1 = new MeetingRoom("r1", "Conference A", 10, "TV", "Whiteboard", "AC");
+        var room2 = new MeetingRoom("r2", "Board Room", 20, "TV", "Projector", "VideoConf", "AC");
         roomManager.AddRoom(room1);
         roomManager.AddRoom(room2);
 

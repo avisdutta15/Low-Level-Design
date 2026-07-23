@@ -130,6 +130,60 @@ user calls: bookingManager.BookRoom(builder, "r1", 9:00, 10:00)
 └─ return booking
 ```
 
+### Cancel Flow
+
+```
+bookingManager.CancelBooking(bookingId)
+│
+├─ Find booking in _bookings list
+├─ roomManager.ReleaseSlot(roomId, start, end)
+│     → removes (start, end) from room's schedule
+│     → room is now free for that time slot again
+├─ Remove booking from _bookings
+├─ Notify observers (participants get "meeting cancelled")
+└─ return true
+```
+
+### Modify Flow
+
+```
+bookingManager.ModifyBooking(bookingId, newBuilder, newStart, newEnd)
+│
+├─ Find existing booking
+├─ V1: Release old slot → Check new slot → Reserve new slot (3 steps — TOCTOU gap!)
+│  V2: ReleaseAndReserve (ONE lock — atomic release + check + reserve)
+│
+├─ If new slot unavailable:
+│     V1: Rollback — re-reserve old slot
+│     V2: Rollback inside lock (old slot re-added)
+│     → "Cannot modify — new time not available. Original preserved."
+│     → return null
+│
+├─ If new slot available:
+│     Replace booking in list
+│     Notify observers
+│     → return new booking
+└─ Old time slot is now free, new slot occupied
+```
+
+### Modify TOCTOU Issue (V1)
+
+```
+V1 ModifyBooking:
+  Step 1: ReleaseSlot(old)           ← room is free
+  ═══ GAP: another thread sees room free, books it! ═══
+  Step 2: CheckAvailability(new)     ← might conflict with step 1's released slot being taken
+  Step 3: ReserveSlot(new)
+
+V2 ReleaseAndReserve (atomic):
+  lock(roomLock):
+    RemoveAll(old slot)
+    check conflict for new slot
+    if conflict: re-add old slot (rollback)
+    if no conflict: add new slot
+  No gap — entire operation is one lock acquisition.
+```
+
 ### V1 Thread-Safety Issues (with examples)
 
 #### Issue 1: CheckAvailability + ReserveSlot TOCTOU
@@ -231,7 +285,7 @@ Result: ConcurrentModification crash or corrupted list.
 
 ## V2 — Fully Thread-Safe
 
-### V2 Class Diagram
+### V2 Class Diagram 
 ![alt text](v2-cd.png)
 
 ### How V2 Became Thread-Safe
@@ -261,6 +315,38 @@ public bool CheckAndReserve(string roomId, DateTime start, DateTime end)
 - Different rooms should be bookable in parallel
 - Only same-room bookings need serialization
 - Global lock would be a bottleneck (all rooms blocked)
+
+#### Fix 4: Atomic ReleaseAndReserve (for Modify)
+
+```csharp
+// V2: Release old + check new + reserve new in ONE lock (no TOCTOU gap)
+public bool ReleaseAndReserve(string roomId, DateTime oldStart, DateTime oldEnd, DateTime newStart, DateTime newEnd)
+{
+    if (!_schedules.TryGetValue(roomId, out var entry)) return false;
+    lock (entry.lockObj)
+    {
+        // Release old slot
+        entry.schedule.RemoveAll(s => s.start == oldStart && s.end == oldEnd);
+
+        // Check new slot for conflicts
+        bool hasConflict = entry.schedule.Any(s => newStart < s.end && newEnd > s.start);
+        if (hasConflict)
+        {
+            // Rollback: re-add old slot (atomic — still inside lock)
+            entry.schedule.Add((oldStart, oldEnd));
+            return false;
+        }
+
+        // Reserve new slot
+        entry.schedule.Add((newStart, newEnd));
+        return true;
+    }
+}
+```
+
+**Why this is better than V1's 3-step approach:**
+- V1: `ReleaseSlot` → gap → `CheckAvailability` → gap → `ReserveSlot` (3 lock acquisitions, 2 gaps)
+- V2: `ReleaseAndReserve` (1 lock acquisition, 0 gaps, atomic rollback on failure)
 
 #### Fix 2: ImmutableList for Collections
 
@@ -357,6 +443,74 @@ Build() creates:
 
 Final: "Conference A (Table & Chairs) + TV + Whiteboard"
 Cost: 0 + 50 + 20 = $70
+```
+
+### Amenity-Based Booking Flow
+
+```
+bookingManager.BookRoomByAmenities(16:00, 17:00, [Alice, Bob], ["Projector", "VideoConf"], withTV: true)
+│
+├─ Step 1: Filter available rooms by amenities
+│     roomManager.FilterRooms(16:00, 17:00, MultiAmenityFilter(["Projector", "VideoConf"]))
+│       → GetAvailableRooms(16:00, 17:00) → [Conference A, Board Room, Huddle Space]
+│       → Filter: must have BOTH Projector AND VideoConf
+│       → Result: [Board Room]
+│
+├─ Step 2: Auto-pick first matching room
+│     → Board Room (cap:20, [TV, Projector, VideoConf, AC])
+│
+├─ Step 3: V1: CheckAvailability + ReserveSlot (two calls)
+│           V2: CheckAndReserve atomically (one per-room lock)
+│
+├─ Step 4: Build booking (Builder applies decorators)
+│     BasicRoom("Board Room") + TVFeature
+│
+├─ Step 5: Notify observers
+│     → Email to Alice, Bob
+│     → History stored
+│
+└─ Return booking
+
+If no room matches: "No room with [Projector, VideoConf] available for 16:00-17:00"
+```
+
+**V2 thread-safety for BookRoomByAmenities:**
+
+```
+V1: Filter returns [Board Room] → check availability → reserve
+    GAP: another thread could book Board Room between filter and reserve!
+
+V2: Filter returns [Board Room] → TRY CheckAndReserve (atomic per-room lock)
+    If another thread grabbed it first → CheckAndReserve returns false
+    → Try next matching room in the list
+    → If all taken: "All matching rooms taken"
+    This retry loop handles races without TOCTOU.
+```
+
+#### Code: V2 BookRoomByAmenities (retry loop)
+
+```csharp
+public Booking? BookRoomByAmenities(DateTime start, DateTime end, List<User> participants,
+    List<string> requiredAmenities, ...)
+{
+    var matching = _roomManager.FilterRooms(start, end, new MultiAmenityFilter(requiredAmenities));
+
+    if (matching.Count == 0) return null; // no rooms with those amenities
+
+    // Try each matching room — handles race where another thread grabs one
+    foreach (var room in matching)
+    {
+        if (_roomManager.CheckAndReserve(room.Id, start, end)) // atomic per-room lock
+        {
+            // Success — this room is ours
+            var booking = builder.Build();
+            return booking;
+        }
+        // This room was taken by another thread — try next
+    }
+
+    return null; // all matching rooms grabbed by other threads
+}
 ```
 
 ### Observer Flow After Booking

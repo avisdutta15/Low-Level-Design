@@ -24,23 +24,16 @@ public class MeetingRoom
     public string Id { get; }
     public string Name { get; }
     public int Capacity { get; }
-    public MeetingRoom(string id, string name, int capacity) { Id = id; Name = name; Capacity = capacity; }
-    public override string ToString() => $"{Name} (cap:{Capacity})";
-}
+    public HashSet<string> Amenities { get; } // e.g., "TV", "Whiteboard", "AC", "Projector", "VideoConf"
 
-public class Notification
-{
-    public string Content { get; }
-    public DateTime SentAt { get; }
-    public Notification(string content) { Content = content; SentAt = DateTime.Now; }
-}
+    public MeetingRoom(string id, string name, int capacity, params string[] amenities)
+    {
+        Id = id; Name = name; Capacity = capacity;
+        Amenities = new HashSet<string>(amenities, StringComparer.OrdinalIgnoreCase);
+    }
 
-public class HistoryRecord
-{
-    public Booking Booking { get; }
-    public DateTime RecordedAt { get; }
-    public HistoryRecord(Booking booking) { Booking = booking; RecordedAt = DateTime.Now; }
-    public override string ToString() => $"[{RecordedAt:HH:mm:ss}] {Booking}";
+    public bool HasAmenity(string amenity) => Amenities.Contains(amenity);
+    public override string ToString() => $"{Name} (cap:{Capacity}, [{string.Join(", ", Amenities)}])";
 }
 
 // ─────────────────────────────────────────────
@@ -92,6 +85,76 @@ public class ACFeature : RoomFeatureDecorator
     public ACFeature(IRoomFeatures wrapped) : base(wrapped) { }
     public override string GetDescription() => _wrapped.GetDescription() + " + AC";
     public override int GetCost() => _wrapped.GetCost() + 30;
+}
+
+// ─────────────────────────────────────────────
+// Room Filter Strategy — dynamic filtering
+// ─────────────────────────────────────────────
+
+// IRoomFilter: each filter takes a list of rooms and returns matching ones.
+// Filters can be combined (AND logic) by chaining them.
+public interface IRoomFilter
+{
+    List<MeetingRoom> Filter(List<MeetingRoom> rooms);
+}
+
+// Filter by minimum capacity
+public class CapacityFilter : IRoomFilter
+{
+    private readonly int _minCapacity;
+    public CapacityFilter(int minCapacity) => _minCapacity = minCapacity;
+    public List<MeetingRoom> Filter(List<MeetingRoom> rooms) =>
+        rooms.Where(r => r.Capacity >= _minCapacity).ToList();
+}
+
+// Filter by a required amenity (e.g., "TV", "Whiteboard")
+public class AmenityFilter : IRoomFilter
+{
+    private readonly string _amenity;
+    public AmenityFilter(string amenity) => _amenity = amenity;
+    public List<MeetingRoom> Filter(List<MeetingRoom> rooms) =>
+        rooms.Where(r => r.HasAmenity(_amenity)).ToList();
+}
+
+// Filter by multiple required amenities (room must have ALL of them)
+public class MultiAmenityFilter : IRoomFilter
+{
+    private readonly List<string> _requiredAmenities;
+    public MultiAmenityFilter(List<string> amenities) => _requiredAmenities = amenities;
+    public List<MeetingRoom> Filter(List<MeetingRoom> rooms) =>
+        rooms.Where(r => _requiredAmenities.All(a => r.HasAmenity(a))).ToList();
+}
+
+// Composite filter: chains multiple filters (AND logic)
+// Apply filter1, then filter2 on the result, etc.
+public class CompositeFilter : IRoomFilter
+{
+    private readonly List<IRoomFilter> _filters = new();
+
+    public CompositeFilter Add(IRoomFilter filter) { _filters.Add(filter); return this; }
+
+    public List<MeetingRoom> Filter(List<MeetingRoom> rooms)
+    {
+        var result = rooms;
+        foreach (var filter in _filters)
+            result = filter.Filter(result);
+        return result;
+    }
+}
+
+public class Notification
+{
+    public string Content { get; }
+    public DateTime SentAt { get; }
+    public Notification(string content) { Content = content; SentAt = DateTime.Now; }
+}
+
+public class HistoryRecord
+{
+    public Booking Booking { get; }
+    public DateTime RecordedAt { get; }
+    public HistoryRecord(Booking booking) { Booking = booking; RecordedAt = DateTime.Now; }
+    public override string ToString() => $"[{RecordedAt:HH:mm:ss}] {Booking}";
 }
 
 // ─────────────────────────────────────────────
@@ -293,6 +356,24 @@ public class RoomManager
     }
 
     public List<MeetingRoom> GetAllRooms() => _rooms.Values.ToList();
+
+    // Filter rooms by strategy: availability + any additional filter (amenity, capacity, etc.)
+    public List<MeetingRoom> FilterRooms(DateTime start, DateTime end, IRoomFilter? filter = null)
+    {
+        // Start with rooms available in the time slot
+        var available = GetAvailableRooms(start, end);
+        // Apply additional filter if provided
+        if (filter != null)
+            available = filter.Filter(available);
+        return available;
+    }
+
+    // Release a reserved time slot (used by cancel/delete)
+    public void ReleaseSlot(string roomId, DateTime start, DateTime end)
+    {
+        if (_schedules.TryGetValue(roomId, out var schedule))
+            schedule.RemoveAll(s => s.start == start && s.end == end);
+    }
 }
 
 // ─────────────────────────────────────────────
@@ -341,7 +422,99 @@ public class BookingManager
         return booking;
     }
 
+    // Book by amenities: filter available rooms with required amenities, auto-pick first match
+    // Caller doesn't need to know which room — system picks the best available one.
+    public Booking? BookRoomByAmenities(DateTime start, DateTime end, List<User> participants,
+        List<string> requiredAmenities, bool withTV = false, bool withWhiteboard = false, bool withAC = false)
+    {
+        // Filter: available rooms that have ALL required amenities
+        var filter = new MultiAmenityFilter(requiredAmenities);
+        var matchingRooms = _roomManager.FilterRooms(start, end, filter);
+
+        if (matchingRooms.Count == 0)
+        {
+            Console.WriteLine($"    [BookingManager] No room with [{string.Join(", ", requiredAmenities)}] available for {start:HH:mm}-{end:HH:mm}");
+            return null;
+        }
+
+        // Pick the first matching room (could use a strategy here: smallest, largest, etc.)
+        var room = matchingRooms.First();
+        Console.WriteLine($"    [BookingManager] Auto-selected: {room}");
+
+        // Build booking with selected room + optional decorator features
+        var builder = new BookingBuilder(room, start, end, participants);
+        if (withTV) builder.WithTV();
+        if (withWhiteboard) builder.WithWhiteboard();
+        if (withAC) builder.WithAC();
+
+        return BookRoom(builder, room.Id, start, end);
+    }
+
     public List<Booking> GetAllBookings() => _bookings.ToList();
+
+    // Cancel a booking: release the room slot, remove from bookings, notify observers
+    public bool CancelBooking(string bookingId)
+    {
+        var booking = _bookings.FirstOrDefault(b => b.Id == bookingId);
+        if (booking == null)
+        {
+            Console.WriteLine($"    [BookingManager] Booking {bookingId} not found");
+            return false;
+        }
+
+        // Release the time slot back to the room
+        _roomManager.ReleaseSlot(booking.Room.Id, booking.StartTime, booking.EndTime);
+        _bookings.Remove(booking);
+
+        Console.WriteLine($"    [BookingManager] Cancelled: {booking}");
+
+        // Notify observers about cancellation
+        foreach (var obs in _observers)
+            obs.OnBookingCreated(booking); // reuse observer (in production: separate OnBookingCancelled)
+
+        return true;
+    }
+
+    // Modify a booking: cancel old, rebook with new time/features
+    // Returns the new booking if successful, null if new slot unavailable (old booking preserved)
+    public Booking? ModifyBooking(string bookingId, BookingBuilder newBuilder, DateTime newStart, DateTime newEnd)
+    {
+        var existing = _bookings.FirstOrDefault(b => b.Id == bookingId);
+        if (existing == null)
+        {
+            Console.WriteLine($"    [BookingManager] Booking {bookingId} not found");
+            return null;
+        }
+
+        string roomId = existing.Room.Id;
+
+        // Release old slot first
+        _roomManager.ReleaseSlot(roomId, existing.StartTime, existing.EndTime);
+
+        // Try to reserve new slot
+        if (!_roomManager.CheckAvailability(roomId, newStart, newEnd))
+        {
+            // Rollback: re-reserve the old slot
+            _roomManager.ReserveSlot(roomId, existing.StartTime, existing.EndTime);
+            Console.WriteLine($"    [BookingManager] Cannot modify — new time not available. Original preserved.");
+            return null;
+        }
+
+        // Reserve new slot
+        _roomManager.ReserveSlot(roomId, newStart, newEnd);
+
+        // Replace booking
+        _bookings.Remove(existing);
+        var newBooking = newBuilder.Build();
+        _bookings.Add(newBooking);
+
+        Console.WriteLine($"    [BookingManager] Modified: {existing.Id} → {newBooking}");
+
+        foreach (var obs in _observers)
+            obs.OnBookingCreated(newBooking);
+
+        return newBooking;
+    }
 }
 
 // ─────────────────────────────────────────────
@@ -361,10 +534,10 @@ public class Program
         bookingManager.AddObserver(notificationService);
         bookingManager.AddObserver(historyService);
 
-        // Add rooms
-        var room1 = new MeetingRoom("r1", "Conference A", 10);
-        var room2 = new MeetingRoom("r2", "Board Room", 20);
-        var room3 = new MeetingRoom("r3", "Huddle Space", 4);
+        // Add rooms (with amenities)
+        var room1 = new MeetingRoom("r1", "Conference A", 10, "TV", "Whiteboard", "AC");
+        var room2 = new MeetingRoom("r2", "Board Room", 20, "TV", "Projector", "VideoConf", "AC");
+        var room3 = new MeetingRoom("r3", "Huddle Space", 4, "Whiteboard");
         roomManager.AddRoom(room1);
         roomManager.AddRoom(room2);
         roomManager.AddRoom(room3);
@@ -432,5 +605,106 @@ public class Program
         Console.WriteLine("\n=== Meeting History ===\n");
         foreach (var record in historyService.GetHistory())
             Console.WriteLine($"    {record}");
+
+        // ── Scenario 7: Cancel a booking ──
+        Console.WriteLine("\n=== Scenario 7: Cancel Huddle Space booking ===\n");
+        var allBookings = bookingManager.GetAllBookings();
+        var huddleBooking = allBookings.FirstOrDefault(b => b.Room.Name == "Huddle Space");
+        if (huddleBooking != null)
+        {
+            bookingManager.CancelBooking(huddleBooking.Id);
+            // Verify room is now free
+            var huddleAvailable = roomManager.CheckAvailability("r3", today.AddHours(14), today.AddHours(15));
+            Console.WriteLine($"    Huddle Space 14:00-15:00 available after cancel: {huddleAvailable}");
+        }
+
+        // ── Scenario 8: Modify a booking (change time) ──
+        Console.WriteLine("\n=== Scenario 8: Modify Conference A 10:00-11:00 → 15:00-16:00 ===\n");
+        var confBooking = allBookings.FirstOrDefault(b => b.Room.Name == "Conference A" && b.StartTime.Hour == 10);
+        if (confBooking != null)
+        {
+            var modBuilder = new BookingBuilder(room1, today.AddHours(15), today.AddHours(16),
+                new List<User> { alice, bob }).WithTV().WithAC();
+
+            bookingManager.ModifyBooking(confBooking.Id, modBuilder, today.AddHours(15), today.AddHours(16));
+
+            // Old slot should be free now
+            var oldFree = roomManager.CheckAvailability("r1", today.AddHours(10), today.AddHours(11));
+            Console.WriteLine($"    Conference A 10:00-11:00 free after modify: {oldFree}");
+        }
+
+        // ── Scenario 9: Modify fails (new time conflicts) ──
+        Console.WriteLine("\n=== Scenario 9: Modify fails (conflict with existing) ===\n");
+        var firstBooking = allBookings.FirstOrDefault(b => b.Room.Name == "Conference A" && b.StartTime.Hour == 9);
+        if (firstBooking != null)
+        {
+            // Try to move to 15:00-16:00 which was just taken by Scenario 8
+            var failBuilder = new BookingBuilder(room1, today.AddHours(15), today.AddHours(16),
+                new List<User> { charlie });
+
+            bookingManager.ModifyBooking(firstBooking.Id, failBuilder, today.AddHours(15), today.AddHours(16));
+        }
+
+        // ── Scenario 10: Filter rooms by amenity ──
+        Console.WriteLine("\n=== Scenario 10: Filter Rooms ===\n");
+
+        // All rooms (for reference)
+        Console.WriteLine("    All rooms:");
+        foreach (var r in roomManager.GetAllRooms())
+            Console.WriteLine($"      {r}");
+
+        // Filter: rooms with TV, available 14:00-15:00
+        Console.WriteLine("\n    Filter: has TV, available 14:00-15:00:");
+        var tvRooms = roomManager.FilterRooms(today.AddHours(14), today.AddHours(15), new AmenityFilter("TV"));
+        foreach (var r in tvRooms)
+            Console.WriteLine($"      {r}");
+
+        // Filter: capacity >= 10 AND has AC
+        Console.WriteLine("\n    Filter: capacity >= 10 AND has AC:");
+        var compositeFilter = new CompositeFilter()
+            .Add(new CapacityFilter(10))
+            .Add(new AmenityFilter("AC"));
+        var bigAcRooms = roomManager.FilterRooms(today.AddHours(14), today.AddHours(15), compositeFilter);
+        foreach (var r in bigAcRooms)
+            Console.WriteLine($"      {r}");
+
+        // Filter: must have BOTH Projector AND VideoConf
+        Console.WriteLine("\n    Filter: has Projector AND VideoConf:");
+        var multiFilter = new MultiAmenityFilter(new List<string> { "Projector", "VideoConf" });
+        var projRooms = roomManager.FilterRooms(today.AddHours(14), today.AddHours(15), multiFilter);
+        foreach (var r in projRooms)
+            Console.WriteLine($"      {r}");
+
+        // Filter: Whiteboard only (Huddle Space was cancelled — should be available again)
+        Console.WriteLine("\n    Filter: has Whiteboard:");
+        var wbRooms = roomManager.FilterRooms(today.AddHours(14), today.AddHours(15), new AmenityFilter("Whiteboard"));
+        foreach (var r in wbRooms)
+            Console.WriteLine($"      {r}");
+
+        // ── Scenario 11: Book by amenities (auto-pick room) ──
+        Console.WriteLine("\n=== Scenario 11: Book by Amenities (auto-pick room) ===\n");
+
+        // Need a room with Projector + VideoConf at 16:00-17:00
+        Console.WriteLine("    Need: Projector + VideoConf, 16:00-17:00");
+        var autoBooking = bookingManager.BookRoomByAmenities(
+            today.AddHours(16), today.AddHours(17),
+            new List<User> { alice, bob, charlie },
+            new List<string> { "Projector", "VideoConf" },
+            withTV: true);
+
+        // Need a room with Whiteboard at 16:00-17:00 (Huddle Space or Conference A match)
+        Console.WriteLine("\n    Need: Whiteboard, 16:00-17:00");
+        var autoBooking2 = bookingManager.BookRoomByAmenities(
+            today.AddHours(16), today.AddHours(17),
+            new List<User> { alice },
+            new List<string> { "Whiteboard" },
+            withWhiteboard: true);
+
+        // Need: VideoConf at 16:00-17:00 (Board Room already booked above — should fail)
+        Console.WriteLine("\n    Need: Projector + VideoConf, 16:00-17:00 again (should fail — already booked)");
+        var autoBooking3 = bookingManager.BookRoomByAmenities(
+            today.AddHours(16), today.AddHours(17),
+            new List<User> { bob },
+            new List<string> { "Projector", "VideoConf" });
     }
 }
