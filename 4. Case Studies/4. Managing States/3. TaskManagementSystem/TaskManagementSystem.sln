@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "V1", "V1", "{1A303CB2-880D-41AE-926D-7CE3E85B29B5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TaskManagementV1", "V1\TaskManagementV1\TaskManagementV1.csproj", "{57576AE5-89BF-42AB-9CE1-BD917AF77B73}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "V2", "V2", "{97E87A2A-4481-4667-B905-4301ED157461}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TaskManagementV2", "V2\TaskManagementV2\TaskManagementV2.csproj", "{2CEDCFF7-3049-47DD-A0CC-457C5F57927B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{57576AE5-89BF-42AB-9CE1-BD917AF77B73}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{57576AE5-89BF-42AB-9CE1-BD917AF77B73}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{57576AE5-89BF-42AB-9CE1-BD917AF77B73}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{57576AE5-89BF-42AB-9CE1-BD917AF77B73}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2CEDCFF7-3049-47DD-A0CC-457C5F57927B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2CEDCFF7-3049-47DD-A0CC-457C5F57927B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2CEDCFF7-3049-47DD-A0CC-457C5F57927B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2CEDCFF7-3049-47DD-A0CC-457C5F57927B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{57576AE5-89BF-42AB-9CE1-BD917AF77B73} = {1A303CB2-880D-41AE-926D-7CE3E85B29B5}
+		{2CEDCFF7-3049-47DD-A0CC-457C5F57927B} = {97E87A2A-4481-4667-B905-4301ED157461}
+	EndGlobalSection
+EndGlobal
