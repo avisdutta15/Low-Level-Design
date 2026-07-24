@@ -10,6 +10,8 @@
 - [V1 — Basic Pipeline](#v1--basic-pipeline)
 - [V1 to V2](#v1-to-v2)
 - [V2 — Fully Thread-Safe](#v2--fully-thread-safe)
+- [V2 to V3](#v2-to-v3)
+- [V3 — Calendar as Client Facade](#v3--calendar-as-client-facade)
 
 ---
 
@@ -100,8 +102,11 @@ If the system is truly simple (no dashboard, no maintenance, no multi-service ac
 
 ## V1 — Basic Pipeline
 
-### V1 Class Diagram 
+### V1 Class Diagram
+
+```plantuml
 ![alt text](v1-cd.png)
+```
 
 ### V1 Booking Flow
 
@@ -285,7 +290,7 @@ Result: ConcurrentModification crash or corrupted list.
 
 ## V2 — Fully Thread-Safe
 
-### V2 Class Diagram 
+### V2 Class Diagram
 ![alt text](v2-cd.png)
 
 ### How V2 Became Thread-Safe
@@ -543,4 +548,345 @@ Schedule list     | Plain List (crash)    | List under per-room lock
 Bookings/History  | List (crash)          | ImmutableList + ImmutableInterlocked
 Observer list     | List (crash)          | ImmutableList (snapshot iteration)
 Singleton init    | ??= (race)            | lock + double-check locking
+```
+
+---
+
+## V2 to V3
+
+V3 restructures the system so the **Calendar is the single client-facing facade**. The client no longer interacts with `RoomManager` or `BookingManager` — they talk only to `Calendar`.
+
+### What Changed
+
+| Aspect | V2 | V3 |
+|--------|----|----|
+| Client entry point | `BookingManager` + `RoomManager` (2 classes) | `Calendar` (single facade) |
+| Who manages schedules | `RoomManager` (external dict of schedules) | `RoomSchedule` (internal, per-room, client never sees it) |
+| Who manages bookings | `BookingManager` | `Calendar` |
+| Who manages rooms | `RoomManager` (Singleton) | `Calendar` (owns room registry) |
+| Availability query | `roomManager.GetAvailableRooms(...)` | `calendar.GetAvailableRooms(...)` |
+| Booking | `bookingManager.BookRoom(builder, roomId, ...)` | `calendar.BookRoom(roomId, ..., withTV: true)` |
+| Cancel | `bookingManager.CancelBooking(id)` | `calendar.CancelBooking(id)` |
+| Free slots | `roomManager.GetFreeSlots(roomId, date)` | `calendar.GetFreeSlots(roomId, date)` |
+| Builder visible to client | Yes (client constructs BookingBuilder) | No (Calendar builds internally) |
+| RoomManager/BookingManager | Public Singletons | Don't exist as separate classes |
+
+---
+
+## V3 — Calendar as Client Facade
+
+### V3 Class Diagram 
+![alt text](v3-cd.png)
+
+### V3 Client API
+
+```csharp
+var calendar = new Calendar();
+
+// Admin setup
+calendar.AddRoom(new MeetingRoom("r1", "Conference A", 10, "TV", "Whiteboard", "AC"));
+calendar.AddRoom(new MeetingRoom("r2", "Board Room", 20, "TV", "Projector", "VideoConf", "AC"));
+calendar.AddObserver(new NotificationObserver());
+
+// Client: "What rooms are free 9-10?"
+var rooms = calendar.GetAvailableRooms(start, end);
+
+// Client: "What rooms have Projector and are free 9-10?"
+var projRooms = calendar.GetAvailableRooms(start, end, new List<string> { "Projector" });
+
+// Client: "Custom filter: capacity >= 10 AND has AC"
+var filtered = calendar.GetAvailableRooms(start, end,
+    new CompositeFilter()
+        .Add(new CapacityFilter(10))
+        .Add(new AmenityFilter("AC")));
+
+// Client: "Rooms with BOTH Projector AND VideoConf"
+var multiFiltered = calendar.GetAvailableRooms(start, end,
+    new MultiAmenityFilter(new List<string> { "Projector", "VideoConf" }));
+
+// Client: "Book Conference A 9-10 with TV"
+calendar.BookRoom("r1", start, end, new List<User> { alice, bob }, withTV: true);
+
+// Client: "Find me a room with VideoConf and book it"
+calendar.BookRoomByAmenities(start, end, participants, new List<string> { "VideoConf" });
+
+// Client: "Show me free slots for Conference A"
+calendar.GetFreeSlots("r1", today);
+
+// Client: "Cancel my meeting"
+calendar.CancelBooking(bookingId);
+
+// Client: "Move my 2pm to 11am"
+calendar.ModifyBooking(bookingId, newStart, newEnd, withAC: true);
+```
+
+### Filter Strategy (pluggable room filtering)
+
+```
+IRoomFilter interface: Filter(List<MeetingRoom>) → List<MeetingRoom>
+
+Implementations:
+  AmenityFilter("TV")        → rooms with TV
+  MultiAmenityFilter(["Projector", "VideoConf"]) → rooms with ALL listed
+  CapacityFilter(10)         → rooms with capacity >= 10
+  CompositeFilter            → chains filters: filter1 → filter2 → filter3 (AND logic)
+
+Usage with Calendar:
+  calendar.GetAvailableRooms(start, end, filter)
+    Step 1: Get rooms available in time slot (RoomSchedule.IsAvailable)
+    Step 2: Apply filter on the available list
+    Step 3: Return matching rooms
+
+Adding a new filter (e.g., "has phone", "on floor 3"):
+  Just implement IRoomFilter — no changes to Calendar.
+```
+
+### V3 Booking Flow (Client → Calendar)
+
+```
+Client: calendar.BookRoom("r1", 9:00, 10:00, [Alice, Bob], withTV: true)
+│
+├─ Calendar looks up MeetingRoom "r1" from _rooms
+├─ Calendar looks up RoomSchedule for "r1" from _schedules
+│
+├─ RoomSchedule.Reserve(9:00, 10:00)
+│     lock(_lock)
+│       check overlap → none
+│       _slots.Add((9:00, 10:00))
+│       return true
+│     unlock
+│
+├─ Calendar builds Booking internally:
+│     BasicRoom("Conference A") + TVFeature → decorated features
+│
+├─ ImmutableInterlocked.Update(_bookings, add)
+│
+├─ Notify observers:
+│     NotificationObserver → "Email → Alice: Meeting booked..."
+│     HistoryObserver → stores in history
+│
+└─ return Booking
+```
+
+### V3 Book-by-Amenities Flow
+
+```
+Client: calendar.BookRoomByAmenities(9:00, 10:00, [All], ["Projector", "VideoConf"])
+│
+├─ calendar.GetAvailableRooms(9:00, 10:00, ["Projector", "VideoConf"])
+│     → filter rooms: available AND has ALL amenities
+│     → result: [Board Room]
+│
+├─ Try Board Room:
+│     _schedules["r2"].Reserve(9:00, 10:00)
+│       lock → check → no conflict → add → return true
+│
+├─ Build Booking with Board Room + features
+├─ Notify observers
+└─ return Booking
+
+If another thread grabbed Board Room between filter and reserve:
+  → Reserve returns false
+  → Try next matching room in the list
+  → If all taken: "All matching rooms taken"
+```
+
+### How RoomSchedule Works (with examples)
+
+`RoomSchedule` is the internal per-room time slot manager. It owns a list of booked `(start, end)` tuples and all operations are under a per-room lock.
+
+#### Data Structure
+
+```
+_slots: List<(DateTime start, DateTime end)>
+
+After 2 bookings:
+  _slots = [(9:00, 10:00), (14:00, 16:00)]
+```
+
+#### Reserve(start, end) — check overlap with for loop
+
+```csharp
+public bool Reserve(DateTime start, DateTime end)
+{
+    lock (_lock)
+    {
+        for (int i = 0; i < _slots.Count; i++)
+        {
+            if (start < _slots[i].end && end > _slots[i].start)
+                return false; // overlap found — reject
+        }
+        _slots.Add((start, end));
+        return true;
+    }
+}
+```
+
+```
+Overlap formula: start < slot.end && end > slot.start
+
+Example 1: Reserve(11:00, 12:00), existing = [(9:00, 10:00)]
+  i=0: 11:00 < 10:00? NO → no overlap
+  Loop done → _slots.Add → RESERVED ✓
+
+Example 2: Reserve(9:30, 10:30), existing = [(9:00, 10:00)]
+  i=0: 9:30 < 10:00? YES  AND  10:30 > 9:00? YES → OVERLAP → REJECTED ✗
+
+Example 3: Reserve(10:00, 11:00), existing = [(9:00, 10:00)]
+  i=0: 10:00 < 10:00? NO → no overlap (back-to-back is OK)
+  → RESERVED ✓
+```
+
+#### Release(start, end) — reverse loop for safe removal
+
+```csharp
+public void Release(DateTime start, DateTime end)
+{
+    lock (_lock)
+    {
+        for (int i = _slots.Count - 1; i >= 0; i--)
+        {
+            if (_slots[i].start == start && _slots[i].end == end)
+            {
+                _slots.RemoveAt(i);
+                break; // exact match found, done
+            }
+        }
+    }
+}
+```
+
+```
+Why reverse loop: RemoveAt(i) shifts elements left. Iterating backwards avoids
+skipping elements after removal.
+
+Example: Release(14:00, 16:00), _slots = [(9:00, 10:00), (14:00, 16:00)]
+  i=1: (14:00, 16:00) == (14:00, 16:00)? YES → RemoveAt(1) → break
+  Result: _slots = [(9:00, 10:00)]
+```
+
+#### ReleaseAndReserve — atomic modify (no TOCTOU)
+
+```csharp
+lock (_lock)
+{
+    // 1. Remove old slot (reverse loop)
+    // 2. Check new slot for conflicts (forward loop)
+    //    If conflict: ROLLBACK (re-add old)
+    // 3. Add new slot
+}
+```
+
+```
+Example: Modify (14:00, 16:00) → (11:00, 12:00)
+  Before: _slots = [(9:00, 10:00), (14:00, 16:00)]
+
+  Step 1: Remove (14:00, 16:00) → _slots = [(9:00, 10:00)]
+  Step 2: Check (11:00, 12:00) vs [(9:00, 10:00)]
+           i=0: 11:00 < 10:00? NO → no conflict
+  Step 3: Add → _slots = [(9:00, 10:00), (11:00, 12:00)]
+  Result: true ✓
+
+Example: Modify (14:00, 16:00) → (9:30, 10:30) — FAILS
+  Step 1: Remove (14:00, 16:00) → _slots = [(9:00, 10:00)]
+  Step 2: Check (9:30, 10:30) vs [(9:00, 10:00)]
+           i=0: 9:30 < 10:00? YES → CONFLICT!
+  ROLLBACK: re-add (14:00, 16:00) → _slots = [(9:00, 10:00), (14:00, 16:00)]
+  Result: false ✗ (original preserved)
+```
+
+#### GetFreeSlots — sweep algorithm
+
+```csharp
+lock (_lock)
+{
+    // 1. Collect today's slots into daySlots, sort by start time
+    // 2. "Cursor" starts at workStart (e.g., 9:00)
+    // 3. For each booked slot:
+    //      - If gap between cursor and slot start → that's FREE
+    //      - Advance cursor past slot end
+    // 4. After loop: if cursor < workEnd → remaining is FREE
+}
+```
+
+```
+Example: _slots = [(9:00, 10:00), (14:00, 16:00)], work hours 9:00-18:00
+
+  daySlots sorted = [(9:00, 10:00), (14:00, 16:00)]
+  cur = 9:00
+
+  i=0: slot (9:00, 10:00)
+    sStart=9:00 > cur=9:00? NO → no gap
+    Advance: cur = 10:00
+
+  i=1: slot (14:00, 16:00)
+    sStart=14:00 > cur=10:00? YES → FREE (10:00, 14:00) ✓
+    Advance: cur = 16:00
+
+  After loop: cur=16:00 < dayEnd=18:00 → FREE (16:00, 18:00) ✓
+
+  Result: [(10:00, 14:00), (16:00, 18:00)]
+```
+
+**Visual:**
+```
+9:00       10:00                14:00       16:00                18:00
+  │█████████│                    │███████████│                    │
+  │ booked  │    FREE 10-14      │  booked   │    FREE 16-18     │
+  │         │◄──────────────────►│           │◄─────────────────►│
+```
+
+**Another example: 3 bookings**
+```
+_slots = [(9:00, 9:30), (11:00, 12:00), (14:00, 16:00)]
+
+  cur=9:00
+  i=0: (9:00, 9:30) → no gap, cur=9:30
+  i=1: (11:00, 12:00) → gap! FREE (9:30, 11:00). cur=12:00
+  i=2: (14:00, 16:00) → gap! FREE (12:00, 14:00). cur=16:00
+  After: FREE (16:00, 18:00)
+
+  Result: [(9:30, 11:00), (12:00, 14:00), (16:00, 18:00)]
+
+9:00 9:30     11:00 12:00     14:00 16:00     18:00
+ │███│          │████│          │████│          │
+      FREE 9:30      FREE 12        FREE 16
+      to 11:00       to 14:00       to 18:00
+```
+
+### Why Calendar (not BookingManager + RoomManager)
+
+```
+V2 Client code:
+  var roomManager = RoomManager.GetInstance();
+  var bookingManager = BookingManager.GetInstance(roomManager);
+  bookingManager.AddObserver(NotificationService.GetInstance());
+  bookingManager.AddObserver(HistoryService.GetInstance());
+  var available = roomManager.GetAvailableRooms(start, end);
+  bookingManager.BookRoom(builder, "r1", start, end);
+
+V3 Client code:
+  var calendar = new Calendar();
+  calendar.AddObserver(new NotificationObserver());
+  var available = calendar.GetAvailableRooms(start, end);
+  calendar.BookRoom("r1", start, end, participants, withTV: true);
+
+V3 is simpler because:
+  - ONE object to interact with (not 2 singletons + observer wiring)
+  - No Builder visible to client (Calendar builds internally from flags)
+  - No need to know about RoomManager or BookingManager
+  - Same thread-safety (per-room lock inside RoomSchedule)
+  - Same features (book, cancel, modify, filter, free slots)
+```
+
+### Thread-Safety (same as V2)
+
+```
+Component            | Mechanism
+─────────────────────┼─────────────────────────────────────
+RoomSchedule         | Per-room lock (Reserve/Release/Modify atomic)
+Different rooms      | Independent locks (parallel booking OK)
+_bookings            | ImmutableList + ImmutableInterlocked
+_observers           | ImmutableList (snapshot iteration)
+Room registry        | ConcurrentDictionary
 ```
