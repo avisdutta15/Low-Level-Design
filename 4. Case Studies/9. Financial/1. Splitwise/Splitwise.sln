@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SplitWiseAlgorithm", "SplitWiseAlgorithm\SplitWiseAlgorithm.csproj", "{15818F80-8F55-4216-914A-C1EEF2264D3C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SplitwiseApp", "SplitwiseAppV1\SplitwiseApp.csproj", "{BA274E64-9C7C-481F-BDD8-C44C44240337}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SplitwiseAppV2", "SplitwiseAppV2\SplitwiseAppV2.csproj", "{0BD853E5-B5F2-4749-A6DD-E6D487D657D1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{15818F80-8F55-4216-914A-C1EEF2264D3C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{15818F80-8F55-4216-914A-C1EEF2264D3C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{15818F80-8F55-4216-914A-C1EEF2264D3C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{15818F80-8F55-4216-914A-C1EEF2264D3C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BA274E64-9C7C-481F-BDD8-C44C44240337}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA274E64-9C7C-481F-BDD8-C44C44240337}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA274E64-9C7C-481F-BDD8-C44C44240337}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA274E64-9C7C-481F-BDD8-C44C44240337}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0BD853E5-B5F2-4749-A6DD-E6D487D657D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0BD853E5-B5F2-4749-A6DD-E6D487D657D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0BD853E5-B5F2-4749-A6DD-E6D487D657D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0BD853E5-B5F2-4749-A6DD-E6D487D657D1}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
