@@ -85,6 +85,31 @@ InventoryManagementSystem (top-level, orchestrator)
   └── StockMovement (audit record: type, warehouse, product, qty, timestamp)
 ```
 
+```
+Why quantity is not tracked inside Product? Why a separate StockEntry entity?
+
+The key advantage is that stock is per-warehouse, not per-product globally.
+
+If you put an AtomicInteger stock field directly on Product, you'd only know the total stock 
+across all warehouses. 
+
+You'd lose the ability to:
+- Know that Warehouse A has 50 units and Warehouse B has 10 units of the same product
+- Transfer stock between warehouses (your transferStock method needs per-warehouse counts)
+- Trigger replenishment per warehouse (Warehouse B might be low while A is fine)
+- Remove stock from a specific warehouse when fulfilling an order
+
+With StockEntry as a separate entity, each Warehouse owns a Map<productId, StockEntry>. 
+The same product can have different stock levels in different warehouses, and each entry 
+has its own AtomicInteger for lock-free concurrent updates scoped to that warehouse.
+
+It's essentially the difference between:
+- Product → stock = 60 (flat, no location info)
+- Warehouse A → StockEntry(productX, 50) and Warehouse B → StockEntry(productX, 10) (location-aware)
+The separation also keeps Product clean as an immutable catalog entity (SKU, name, category, threshold) 
+with no mutable state, while all the mutable stock-tracking lives in StockEntry. Clean single responsibility.
+
+```
 ---
 
 ## 5. Entity Details
